@@ -273,7 +273,7 @@ for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes
         ((x.len == y.len || throw(DimensionMismatch(string($op) * ": $(x.len) != $(y.len)"))) ; bits(($op)(x.x, y.x), x.len))
 end
 
-# TODO: Is there and accessor method for .x ?
+# TODO: Is there an accessor method for .x ?
 # We don't want lexicographic sorting. Also it uses slow fallback methods.
 Base.:(<)(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1.x < v2.x
 Base.isless(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1 < v2
