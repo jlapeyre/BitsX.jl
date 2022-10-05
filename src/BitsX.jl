@@ -12,7 +12,7 @@ Tools for bits and masks. This module is similar to and depends on Bits.jl.
 * Diagnostic: `min_bits`, `is_bitstring`, `bitsize`.
 
 * Converting between representations of bit sequences:
-  `bit_string`, `bool_tuple`, `bit_vector`
+  `bit_string`, `bool_tuple`, `bit_vector`, `bool_vector`
 """
 module BitsX
 
@@ -24,7 +24,7 @@ export undigits, undigits2
 export mask, leftmask, rightmask, rangemask,
     asint, bit, min_bits
 
-export bit_string, is_bitstring, bit_vector, bool_tuple
+export bit_string, is_bitstring, bit_vector, bool_tuple, bool_vector
 
 const Word = UInt
 
