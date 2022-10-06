@@ -9,7 +9,7 @@ Tools for bits and masks. This module is similar to and depends on Bits.jl.
 * Bit views and indexing into bits of `Real`s:
   `bits`, `bit`
 
-* Diagnostic: `min_bits`, `is_bitstring`, `bitsize`.
+* Diagnostic: `min_bits`, `min_dits`, `is_bitstring`, `bitsize`.
 
 * Converting between representations of bit sequences:
   `bit_string`, `bool_tuple`, `bit_vector`, `bool_vector`
@@ -22,7 +22,7 @@ export bits, bitsize, BitVector1Mask, BitVector1, AbstractBitVector1
 export undigits, undigits2
 
 export mask, leftmask, rightmask, rangemask,
-    asint, bit, min_bits, min_bits2
+    asint, bit, min_bits, min_dits
 
 export bit_string, is_bitstring, bit_vector, bool_tuple, bool_vector
 
@@ -238,7 +238,7 @@ undigits(A; base=10) = undigits(Int, A, base=base)
 function undigits(::Type{IntT}, A; base=10) where IntT
     base == 2 && IntT <: Unsigned && return _undigits_base_2(IntT, A)
     n = zero(IntT)
-    @inbounds for i = reverse(eachindex(A))
+    @inbounds for i in reverse(eachindex(A))
         n = Base.checked_add(Base.checked_mul(base, n), IntT(A[i]))
     end
     return n
@@ -409,36 +409,39 @@ julia> min_bits([0,1,0])
 ```
 """
 min_bits(n::T) where {T<:Integer} = 8 * sizeof(T) - Base.leading_zeros(n)
+min_bits(v) = min_dits(v)
 
-function min_bits(bit_str::AbstractString)
-    n = Base.length(bit_str)
-    i = 1
-    for c in bit_str
-        c === '1' && return (n - i + 1)
+_zero(s::AbstractChar) = '0'
+_zero(x) = zero(x)
+
+"""
+    min_dits(v)
+
+Return the minimum number of "dits" needed to express `v`.
+
+The first element not representing zero counting from the left determines the
+return value. Input is not validated.
+
+# Example
+```julia-repl
+julia> min_dits("03Q")
+2
+
+julia> min_dits([0, 3 , 17])
+2
+```
+"""
+function min_dits(v)
+    n = Base.length(v)
+    i = 0
+    for c in v
+        c !== _zero(c) && return (n - i)
         i += 1
     end
     return 0
 end
 
-function _min_bits(bit_str::AbstractString)
-    n = Base.length(bit_str)
-    for (i, c) in enumerate(bit_str)
-        c === '1' && return (n - i + 1)
-        i += 1
-    end
-    return 0
-end
-
-
-function min_bits(v)
-    n = length(v)
-    c::Int = 0
-    for b in v
-        b == one(b) && break
-        c += 1
-    end
-    return n - c
-end
+min_dits(v::Integer) = throw(ErrorException("min_dits: use min_bits for $(typeof(v)) input $v"))
 
 """
     is_bitstring(bit_str::AbstractString; throw=false)
@@ -499,10 +502,11 @@ Return instead a `Vector{IntT}` if `IntT` is passed.
 `bit_str` is first validated.
 """
 bool_vector(bit_str::AbstractString) = bool_vector(Bool, bit_str)
+
 function bool_vector(::Type{IntT}, bit_str::AbstractString) where IntT
     tup = bool_tuple(bit_str)
     vec = Vector{IntT}(undef, length(tup))
-    for i in 1:length(tup) # eachindex ?
+    for i in eachindex(tup)
         @inbounds vec[i] = tup[i]
     end
     return vec
