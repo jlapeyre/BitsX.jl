@@ -18,4 +18,14 @@ using Test
 
     @test_throws OverflowError bits("1"^100)
     @test_throws OverflowError undigits(UInt, fill(1, 1000))
+
+    @test min_bits((0,1,0,1)) == 3
+    @test min_bits([0,1,0,1]) == 3
+    @test min_bits((1,1,0,1)) == 4
+    @test min_bits(()) == 0
+    @test min_bits((0,)) == 0
+    @test min_bits("0101") == 3
+    @test min_bits("1101") == 4
+    @test min_bits("0") == 0
+    @test min_bits("") == 0
 end

@@ -22,7 +22,7 @@ export bits, bitsize, BitVector1Mask, BitVector1, AbstractBitVector1
 export undigits, undigits2
 
 export mask, leftmask, rightmask, rangemask,
-    asint, bit, min_bits
+    asint, bit, min_bits, min_bits2
 
 export bit_string, is_bitstring, bit_vector, bool_tuple, bool_vector
 
@@ -388,10 +388,10 @@ end
 """
     min_bits(n::Integer)
     min_bits(bit_str::AbstractString)
-    min_bits(v::Tuple)
+    min_bits(v)
 
 Return the required number of bits in the binary representation
-of `n` (or `bit_str`, or `v`).
+of `n` (or `bit_str`, or iterable `v`).
 
 The returned value is the position of the leftmost bit equal to `1`, counting from the right.
 Equivalently, the value is the length of the `bit_str` discounting leading zeros.
@@ -412,6 +412,16 @@ min_bits(n::T) where {T<:Integer} = 8 * sizeof(T) - Base.leading_zeros(n)
 
 function min_bits(bit_str::AbstractString)
     n = Base.length(bit_str)
+    i = 1
+    for c in bit_str
+        c === '1' && return (n - i + 1)
+        i += 1
+    end
+    return 0
+end
+
+function _min_bits(bit_str::AbstractString)
+    n = Base.length(bit_str)
     for (i, c) in enumerate(bit_str)
         c === '1' && return (n - i + 1)
         i += 1
@@ -419,12 +429,12 @@ function min_bits(bit_str::AbstractString)
     return 0
 end
 
-# could allow other iterables as well
-function min_bits(v::Tuple)
+
+function min_bits(v)
     n = length(v)
     c::Int = 0
-    for i in eachindex(v)
-        @inbounds v[i] == one(v[i]) && break
+    for b in v
+        b == one(b) && break
         c += 1
     end
     return n - c
