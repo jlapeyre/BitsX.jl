@@ -1,4 +1,4 @@
-using BitsX: min_bits, undigits, bits, BitVector1Mask
+using BitsX: BitsX, min_bits, undigits, bits, BitVector1Mask, min_uint_type, uint_type
 using Test
 
 @testset "Bits.Xjl" begin
@@ -13,10 +13,10 @@ using Test
     @test string(bits(Tuple(bits("111000")))) == "<111000>"
     @test reverse(bits("111000")) == bits("000111")
 
-    @test bits("0101") isa BitVector1Mask{UInt}
+    @test bits("0101") isa BitVector1Mask{UInt8}
     @test bits(Int, "0101") isa BitVector1Mask{Int}
 
-    @test_throws OverflowError bits("1"^100)
+    @test length(bits("1"^100)) == 100
     @test_throws OverflowError undigits(UInt, fill(1, 1000))
 
     @test min_bits((0,1,0,1)) == 3
@@ -28,4 +28,17 @@ using Test
     @test min_bits("1101") == 4
     @test min_bits("0") == 0
     @test min_bits("") == 0
+end
+
+
+@testset "bitintegers" begin
+    @test min_uint_type(0) == UInt8
+    @test min_uint_type(1) == UInt8
+    @test min_uint_type(7) == UInt8
+    @test min_uint_type(8) == UInt8
+    @test min_uint_type(9) == UInt16
+    @test_throws DomainError min_uint_type(-1)
+    @test min_uint_type(1000) == BitsX.UInt1000
+    @test uint_type(8) == UInt8
+    @test uint_type(80) == BitsX.UInt80
 end
