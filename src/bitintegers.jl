@@ -31,16 +31,16 @@ Return an `n`-bit unsigned integers type `UIntn`.
 
 If `UIntn` does not exist, construct `UIntn` and `Intn`.
 """
-function uint_type(n::Int)::DataType
-    if haskey(_UINT_TYPES, n)
-        return _UINT_TYPES[n]::DataType
-    else
-        n >= 0 || throw(DomainError(n, "Must be non-negative."))
-        n % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
-        uint_sym = Symbol(:UInt, n)
-        eval(Meta.parse("BitIntegers.@define_integers $n"))
-        _uint_type::DataType = eval(uint_sym)
-        _UINT_TYPES[n] = _uint_type
-        return _uint_type
+@inline function uint_type(n::Integer)
+    _type = get(_UINT_TYPES, n, nothing)
+    if !isnothing(_type)
+        return _type
     end
+    n >= 0 || throw(DomainError(n, "Must be non-negative."))
+    n % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
+    uint_sym = Symbol(:UInt, n)
+    eval(Meta.parse("BitIntegers.@define_integers $n"))
+    _uint_type::DataType = eval(uint_sym)
+    _UINT_TYPES[n] = _uint_type
+    return _uint_type
 end

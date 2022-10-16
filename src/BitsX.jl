@@ -16,20 +16,23 @@ Tools for bits and masks. This module is similar to and depends on Bits.jl.
 """
 module BitsX
 
-import Bits as _Bits
-import Bits: bits, bitsize, BitVector1Mask, BitVector1, AbstractBitVector1
-export bits, bitsize, BitVector1Mask, BitVector1, AbstractBitVector1
+export bits, StaticBitVector, StaticBitVector0
+export StaticBitVector, AbstractStaticBitVector
+export bitsizeof, bitlength
 export undigits, undigits2
 export uint_type, min_uint_type
+export OneBased, ZeroBased
 
-export mask, leftmask, rightmask, rangemask,
-    asint, bit, min_bits, min_dits
+export mask, masked, leftmask, rightmask, rangemask,
+    asint, bit, tstbit, unsafe_tstbit, min_bits, min_dits
 
-export bit_string, is_bitstring, bit_vector, bit_vector2, bool_tuple, bool_vector
+export bit_string, bit_string!, is_bitstring, bit_vector, bit_vector2, bool_tuple, bool_vector
 
 const Word = UInt
 
+#include("dictstaticbits.jl")
 include("bitintegers.jl")
 include("bits.jl")
+#include("static_bitvector.jl")
 
 end # module BitsX

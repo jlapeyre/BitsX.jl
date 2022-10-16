@@ -1,3 +1,44 @@
+const _ZERO_CHAR_CODE = Int('0')
+const _ONE_CHAR_CODE = Int('1')
+
+# bitsizeof should give how many "addressable" bits are in the object
+# This should be in runtest
+"""
+    bitsizeof(T::Type)
+
+Return the number of indexable bits in an instance of type `T`.
+Here "indexable" means via `bit(x::T, i)`.
+
+If the number of indexable bits in an instance of type `T` cannot be computed
+from the type alone, then an error is thrown.
+"""
+bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
+const _BITS_PER_BYTE = 8
+_bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
+_bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
+bitsizeof(::Type{Bool}) = 1
+
+const MPFR_EXP_BITSIZE = bitsizeof(Clong) # bytes_to_bits(sizeof(Clong))
+
+"""
+bitlength(x)
+
+Return the number of bits in `x`. This is the number of
+bits that can be indexed via `bits`. If `x` is an `isbitstype`
+type, then this is the same as `bitsizeof(typeof(x))`.
+
+In contrast, if `x` is of type `BigInt` or `BigFloat` the number
+of bits is not encoded in the type, and in fact may vary from instance
+to instance.
+"""
+bitlength(x::T) where T = bitsizeof(T)
+# bitlength(x::T) where T = _bitlength(Val(isbitstype(T)), T)
+# _bitlength(isbits::Val{true}, T::Type) = bitsizeof(T)
+# _bitlength(isbits::Val{false}, T::Type) = throw(MethodError(bitlength, (T,)))
+bitlength(x::BigFloat) =  1 + MPFR_EXP_BITSIZE + precision(x)
+bitlength(x::BigInt) = abs(x.size) * Base.GMP.BITS_PER_LIMB # bitsizeof(Base.GMP.Limb)
+bitlength(x::AbstractVector{Bool}) = length(x)
+
 """
     rightmask([T=UInt], i)
 
@@ -14,6 +55,13 @@ julia> bit_string(rightmask(UInt8, 3))
 rightmask(i) = rightmask(Word, i)
 rightmask(::Type{T}, i::Integer) where T = one(T) << i - one(T)
 
+abstract type IndexBase end
+struct OneBased <: IndexBase end
+struct ZeroBased <: IndexBase  end
+
+rightmask(::IndexBase, args...) = rightmask(args...)
+rightmask(::ZeroBased, ::Type{T}, i::Integer) where T = rightmask(T, i + 1)
+
 """
     leftmask([T=UInt], i)
 
@@ -29,6 +77,9 @@ julia> bit_string(leftmask(UInt8, 3))
 """
 leftmask(i) = leftmask(Word, i)
 leftmask(::Type{T}, i::Integer) where T = ~(one(T) << (i-1) - one(T))
+
+leftmask(::IndexBase, args...) = leftmask(args...)
+leftmask(::ZeroBased, ::Type{T}, i::Integer) where T = leftmask(T, i + 1)
 
 """
     rangemask([T=UInt], ilo, ihi)
@@ -52,9 +103,10 @@ julia> bit_string(rangemask(UInt8, (1, 5), (4, 8)))
 "11111111"
 ```
 """
-rangemask(args...) = rangemask(Word, args...)
-rangemask(::Type{T}, ilo, ihi) where T = leftmask(T, ilo) & rightmask(T, ihi)
-rangemask(::Type{T}, ranges::NTuple{2}...) where T = mapfoldl(x->rangemask(T, x...), |, ranges)
+rangemask(args...) = rangemask(OneBased(), Word, args...)
+rangemask(ib::IndexBase, ::Type{T}, ilo::Integer, ihi::Integer) where T = leftmask(ib, T, ilo) & rightmask(ib, T, ihi)
+rangemask(ib::IndexBase, ::Type{T}, ranges::NTuple{2}...) where T = mapfoldl(x->rangemask(ib, T, x...), |, ranges)
+rangemask(::Type{T}, args...) where T = rangemask(OneBased(), T, args...)
 
 """
     mask([T=UInt], i::Integer)
@@ -84,64 +136,123 @@ julia> bit_string(mask(UInt16, (1:3, 9, 14:16)))
 "1110000100000111"
 ```
 """
-mask(args) = mask(Word, args)
-mask(::Type{T}, ur::UnitRange) where T = rangemask(T, ur.start, ur.stop)
+mask(ib::IndexBase, ::Type{T}, ur::UnitRange) where T = rangemask(ib, T, ur.start, ur.stop)
+#mask(::Type{T}, ur::UnitRange) where T = rangemask(T, ur.start, ur.stop)
 # Following method has typical problem. For literal or::OR, it happens at compile time.
 # For or::OR in variable it is 10x slower than the fallback below with `inds`.
 # But, the fallback is slower for literal range, does not happen at compile time.
 # mask(::Type{T}, or::OrdinalRange) where T = mask(T, collect(or))
 mask(::Type{T}, i::Integer) where T = (one(T) << (i-one(T)))
-mask(::Type{T}, inds) where T = mapfoldl(x->mask(T, x), |, inds)
+mask(ib::IndexBase, ::Type{T}, inds) where T = mapfoldl(i->mask(ib, T, i), |, inds)
 mask(::Type{T}, r::Base.OneTo) where T = rightmask(T, length(r))
+mask(arg) = mask(OneBased(), Word, arg)
+mask(::Type{T}, args...) where T = mask(OneBased(), T, args...)
 
 # Modified from Bits.jl
 asint(x::Integer) = x
 asint(x::AbstractFloat) = reinterpret(Signed, x) # Signed gets all the types we need
 
+# Taken from Bits.jl
+"""
+    masked(x, [j::Integer], i::Integer) -> typeof(x)
+
+Return the result of applying the mask `mask(x, [j], i)` to `x`, i.e.
+`x & mask(x, [j], i)`.
+If `x` is a float, apply the mask to the underlying bits.
+
+# Examples
+```jldoctest
+julia> masked(0b11110011, 1, 5) === 0b00010010
+true
+
+julia> x = rand(); masked(-x, 0, 63) === x
+true
+```
+"""
+masked(ib::IndexBase, x, args...) = x & mask(ib, typeof(x), args...)
+masked(T::DataType, args...) = throw(MethodError(masked, (T, args...)))
+masked(ib::IndexBase, x::AbstractFloat, args...) = reinterpret(typeof(x), masked(ib, asint(x), args...))
+masked(args...) = masked(OneBased(), args...)
+
 """
     bit(x::Real, i::Integer)
 
 Similar to `Bits.bit` from registered `Bits.jl` package. A difference is that
-the return type here is always `Int`.
+the return type here does not depend on the input type, but rather is always `Int`.
 """
 bit(x::Integer, i::Integer) = (x >>> UInt(i-1)) & 1
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
-bit(x::Union{BigInt,BigFloat}, i::Integer) = Int(Base.GMP.MPZ.tstbit(x, i-1))
-bit(x::AbstractBitVector1, i::Integer) = x[i]
-bit(x::AbstractVector{Bool}, i::Integer) = x[i]
+bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
+bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
+bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
+bit(::OneBased, args...) = bit(args...)
+
+# The string should be one byte per character
+function bit(v::String, i::Integer)
+    byte = codeunit(v, i)
+    byte == _ZERO_CHAR_CODE && return 0
+    byte == _ONE_CHAR_CODE && return 1
+    error("Invalid character code $byte for bit")
+end
+
+function bit(v, i::Integer)
+    b = v[i] # propagate inbounds ?
+    b == one(b) && return 1
+    b == zero(b) && return 0
+    error("Unrecognized bit $b")
+end
 
 """
-    bits(x::T, n) where {T<:Real}
+    tstbit(x::Real, i::Integer) -> Bool
 
-Create a view of the bits of `x` that is truncated to the first `n` bits.
-
-The underlying data is of type `T`. The truncated bits are zeroed.
-Indexing at positions larger than `n` will not error, but will return zero.
+Similar to [`bit`](@ref) but returns the bit at position `i` as a `Bool`.
 
 # Examples
-```julia-repl
-julia> bits(0x5555)
-<01010101 01010101>
-
-julia> bits(0x5555, 10)
-<01 01010101>
-
-julia> bits(bits(0x5555, 10))
-<00000001 01010101>
+```jldoctest
+julia> tstbit(0b101, 3)
+true
 ```
 """
-_Bits.bits(x::T, n) where {T <: Real} = _Bits.BitVector1Mask(x & rightmask(T, n), n)
+tstbit(x, i::Integer) = bit(x, i) % Bool
+tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
 
-# TODO: Why do I do the following method? Why not reutrn x instead of x.x?
-_Bits.bits(x::_Bits.BitVector1Mask) = _Bits.bits(x.x)
-_Bits.bits(x::_Bits.BitVector1) = x
+tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
+tstbit(::OneBased, args...) = tstbit(args...)
 
-_Bits.bits(x::_Bits.BitVector1Mask, n) = _Bits.bits(x.x, n)
-_Bits.bits(x::_Bits.BitVector1, n) = bits(x.x, n)
+# Maybe from Random module
+function tstbit(x::BigFloat, i::Integer)
+    prec = precision(x)
+    if i > prec
+        i -= prec
+        if i > MPFR_EXP_BITSIZE
+            (i == MPFR_EXP_BITSIZE + 1) ? (x.sign == -1) : false
+        else
+            tstbit(x.exp, i)
+        end
+    else
+        nlimbs = (prec-1) ÷ Base.GMP.BITS_PER_LIMB + 1
+        unsafe_tstbit(x.d, i + nlimbs * Base.GMP.BITS_PER_LIMB - prec)
+    end
+end
 
-Base.count_ones(x::AbstractBitVector1) = Base.count_ones(x.x)
+"""
+    unsafe_tstbit(p::Ptr{T}, i::Integer)::Bool where {T}
 
-min_bits(x::_Bits.AbstractBitVector1) =  min_bits(x.x)
+Return the value of `i`th bit of `p`. This is dangerous,
+there is no bounds check.
+"""
+unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
+    tstbit(unsafe_load(p, 1 + (i-1) ÷ bitsizeof(T)),
+           mod1(i, bitsizeof(T)))
+
+#_Bits.bits(x::T, n) where {T <: Real} = StaticBitVector(x & rightmask(T, n), n)
+# # TODO: Why do I do the following method? Why not return x instead of x.x?
+# _Bits.bits(x::StaticBitVector) = _Bits.bits(x.x)
+# _Bits.bits(x::StaticBitVectorView) = x
+# _Bits.bits(x::StaticBitVector, n) = _Bits.bits(x.x, n)
+# _Bits.bits(x::StaticBitVectorView, n) = bits(x.x, n)
+# Base.count_ones(x::AbstractBitVector1) = Base.count_ones(x.x)
+# min_bits(x::_Bits.AbstractBitVector1) =  min_bits(x.x)
 
 # TODO: make this more robust. detect needed data type, etc.
 """
@@ -155,7 +266,7 @@ in that the bits in the string are in the same order as the bits in `b`.
 If `T` is not specified, the smallest unsigned integer type capable of representing `s`
 will be used.
 
-Spaces, and the characters '>', '<' are stripped from `s`.
+Spaces, and the characters '>', '<' are stripped from `s` if `strip` is `true`.
 
 # Examples
 ```julia-repl
@@ -166,22 +277,38 @@ julia> bits("<01000000 11111111>")
 <01000000 11111111>
 ```
 """
-function _Bits.bits(::Type{T}, s::AbstractString) where T
-    ssimp = _strip_bin_format(s)
+function bits(::Type{T}, s::AbstractString; strip::Bool=false) where T
+    ss = strip ? _strip_bin_format(s) : s
+    return _bits(T, ss)
+end
+
+function bits(s::AbstractString; strip::Bool=false)
+    ss = strip ? _strip_bin_format(s) : s
+    return _bits(ss)
+end
+
+function _bits(ssimp::AbstractString)
+    return _bits(min_uint_type(length(ssimp)), ssimp)
+end
+
+function _bits(::Type{T}, ssimp::AbstractString) where T
     x = parse(T, ssimp, base=2)
-    return _Bits.bits(x, length(ssimp))
+    return StaticBitVector(x, length(ssimp))
 end
 
+# This is permissive
 function _strip_bin_format(s::AbstractString)
-    ! any(x -> occursin(x, s), ('<', '>', ' ')) && return s
-    return replace(s, r"[<>\s]" => "")
+    if all(x -> x in ('0', '1'), s)
+        return s
+    end
+    return replace(s, r"[^01]" => "")
 end
 
-function _Bits.bits(s::AbstractString)
-    ssimp = _strip_bin_format(s)
-    x = parse(min_uint_type(length(ssimp)), ssimp, base=2)
-    return _Bits.bits(x, length(ssimp))
-end
+# TODO: loosen this? Keep only '1' and '0' ?
+# function _strip_bin_format(s::AbstractString)
+#     ! any(x -> occursin(x, s), ('<', '>', ' ')) && return s
+#     return replace(s, r"[<>\s]" => "")
+# end
 
 const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
@@ -203,9 +330,11 @@ julia> bits((0,1,0,1))
 <0101>
 ```
 """
-_Bits.bits(_digits::_VEC_LIKE, n=length(_digits)) = bits(min_uint_type(n)::DataType, _digits, n)
-_Bits.bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT =
+bits(_digits::_VEC_LIKE, n=length(_digits)) = bits(min_uint_type(n)::DataType, _digits, n)
+bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT =
     bits(undigits(IntT, _digits; base=2), n)
+
+# This is too slow: min_uint_type(n)::DataType
 
 """
     undigits([IntT=Int], A; base=10)
@@ -231,8 +360,9 @@ end
 
 # This is only an optimization. Tests are highly variable for unknown reasons.
 # So, I am not sure how much is saved here.
+# This will fail for BigInt
 function _undigits_base_2(::Type{IntT}, A) where IntT <: Unsigned
-    _Bits.bitsize(IntT) < length(A) && throw(OverflowError("Output data type is too small for input data"))
+    bitsizeof(IntT) < length(A) && throw(OverflowError("Output data type is too small for input data"))
     n = zero(IntT)
     @inbounds for i = reverse(eachindex(A))
         n = IntT(2) * n + IntT(A[i])
@@ -240,58 +370,12 @@ function _undigits_base_2(::Type{IntT}, A) where IntT <: Unsigned
     return n
 end
 
-Base.zero(b::_Bits.AbstractBitVector1) = bits(zero(b.x))
-Base.one(b::_Bits.AbstractBitVector1) = bits(one(b.x))
-
-const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
-for T in (_int_types..., :BigInt)
-    @eval (Base.$T)(x::_Bits.AbstractBitVector1) = ($T)(x.x)
-end
-Base.Integer(x::_Bits.AbstractBitVector1) = x.x
-
-for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
-    @eval (Base.$op)(x::_Bits.BitVector1Mask{T}, y::Real) where T = bits(($op)(x.x, T(y)), x.len)
-    @eval (Base.$op)(x::_Bits.BitVector1{T}, y::Real) where T = bits(($op)(x.x, T(y)))
-    @eval (Base.$op)(y::Real, x::_Bits.BitVector1{T}) where T = bits(($op)(x, y))
-    @eval (Base.$op)(y::Real, x::_Bits.BitVector1Mask{T}) where T = bits(($op)(x, y))
-    @eval (Base.$op)(y::BitVector1Mask, x::BitVector1Mask) =
-        ((x.len == y.len || throw(DimensionMismatch(string($op) * ": $(x.len) != $(y.len)"))) ; bits(($op)(x.x, y.x), x.len))
-end
-
-# TODO: Is there an accessor method for .x ?
-# We don't want lexicographic sorting. Also it uses slow fallback methods.
-Base.:(<)(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1.x < v2.x
-Base.isless(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1 < v2
-
-# Could maybe use args... above for these
-for op in (:(~),)
-    @eval (Base.$op)(x::_Bits.BitVector1Mask{T}) where T = bits(($op)(x.x), x.len)
-    @eval (Base.$op)(x::_Bits.BitVector1{T}) where T = bits(($op)(x.x))
-end
-
-Base.zero(b::_Bits.BitVector1Mask) = bits(zero(b.x), b.len)
-Base.one(b::_Bits.BitVector1Mask) = bits(one(b.x), b.len)
-
 # This works, but is slower on some tests
 #   bits(mapfoldl(i -> bit(b, i) << (n - i), |, 1:n), length(b))
 # function Base.reverse(b::BitVector1Mask{T}) where T
 #     n = length(b)
 #     bits(mapfoldl(i -> bit(b, i) << (n - i), |, 1:n), n)
 # end
-
-"""
-    reverse(b::BitVector1Mask)
-
-Return `b` with the bit order reversed.
-"""
-function Base.reverse(b::BitVector1Mask{T}) where T
-    c = zero(T)
-    n = length(b)
-    for i in 1:n
-        c |= bit(b, i) << (n - i)
-    end
-    return bits(c, length(b))
-end
 
 # Return Tuple instead
 # tupfindall(itr) = (n=count(itr); niter = (i for i in 1:n if itr[i]); NTuple{n, Int}((niter...,)))
@@ -357,25 +441,40 @@ function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Intege
     return string(convert(uinttype(T), x); pad=pad, base=2)
 end
 
-# TODO: make the semantics of `pad` the same as above for Integer input
+bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
+
+# v -- an iterable of objects representing bit values as ones and zeros
 function bit_string(v; pad::Union{Nothing,Integer}=0)
-    n = length(v)
-    n_pad = pad - n > 0 ? pad - n : 0
-    n_buf = n_pad > 0 ? pad : n
-    buf = Vector{UInt8}(undef, n_buf)
-    (zero_code, one_code) = (48, 49)
+    n_buf = max(pad, length(v))
+    return bit_string!(Vector{UInt8}(undef, n_buf), v)
+end
+
+"""
+    bit_string!(buf::Vector{UInt8}, v)::String
+
+Convert the iterable `v` of bit values into a bit string of length `length(buf)`
+with characters `0` and `1`.
+If `length(buf)` is greater than `length(v)`, then the excess characters are set
+to `0`.
+
+`v` must have a length in the sense that the call `length(v)` must succeed.
+"""
+function bit_string!(buf::Vector{UInt8}, v) #; pad::Union{Nothing,Integer}=0)
+    n_pad = length(buf) - length(v)
+    n_pad < 0 && throw(BoundsError(buf, length(v)))
     @inbounds for i in 1:n_pad
-        buf[i] = zero_code
+        buf[i] = _ZERO_CHAR_CODE
     end
     j::Int = n_pad + 1
     @inbounds for i in eachindex(v)
         x = v[i]
-        buf[j] = iszero(x) ? zero_code : isone(x) ? one_code :
+        buf[j] = iszero(x) ? _ZERO_CHAR_CODE : isone(x) ? _ONE_CHAR_CODE :
             throw(DomainError(x, "Must be 0 or 1."))
         j += 1
     end
     return String(take!(IOBuffer(buf)))
 end
+
 
 """
     min_bits(n::Integer)
@@ -442,9 +541,9 @@ Return `true` if all characters in `bit_str` are either `'0'` or `'1'`,
 otherwise `false`.
 If `throw` is `true`, then throw an error rather than returning `false`.
 """
-function is_bitstring(bit_str::AbstractString; throw=false)
-    for c in bit_str
-        if !(c === '1' || c === '0')
+function is_bitstring_new(bit_str::AbstractString; throw=false)
+    for c in codeunits(bit_str)
+        if !(c == _ONE_CHAR_CODE || c == _ZERO_CHAR_CODE)
             throw && Base.throw(
                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
             return false
@@ -452,6 +551,21 @@ function is_bitstring(bit_str::AbstractString; throw=false)
     end
     return true
 end
+
+
+# This is slower
+# function is_bitstring(bit_str::AbstractString; throw=false)
+#     for c in bit_str
+#         if !(c === '1' || c === '0')
+#             throw && Base.throw(
+#                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
+#             return false
+#         end
+#     end
+#     return true
+# end
+
+
 
 """
     bool_tuple([IntT=Bool], bit_str::AbstractString)
@@ -477,7 +591,9 @@ bool_tuple(bit_str::AbstractString) = bool_tuple(Bool, bit_str::AbstractString)
     return ((c == '1' ? one(IntT) : zero(IntT) for c in bit_str)...,)
 end
 
+
 # TODO: could save this allocation probably
+# TODO: the tuple is probably inefficient, especially for large strings
 """
     bit_vector(bit_str::AbstractString)
 
@@ -504,3 +620,211 @@ function bool_vector(::Type{IntT}, bit_str::AbstractString) where IntT
     end
     return vec
 end
+
+
+
+# Copied from Bits.jl
+"""
+    bits(x::Real)
+
+Create an immutable view on the bits of `x` as a vector of `Bool`, similar to a `BitVector`.
+If `x` is a `BigInt`, the vector has length [`Bits.INF`](@ref).
+Currently, no bounds check is performed when indexing into the vector.
+
+# Examples
+```jldoctest
+julia> v = bits(Int16(2^8+2^4+2+1))
+<00000001 00010011>
+
+julia> permutedims([v[i] for i in 8:-1:1])
+1×8 Array{Bool,2}:
+ false  false  false  true  false  false  true  true
+
+julia> bits(true)
+<1>
+
+julia> bits(big(2)^63)
+<...0 10000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000>
+
+julia> bits(Float32(-7))
+<1|10000001|1100000 00000000 00000000>
+
+julia> ans[1:23] # creates a vector of bits with a specific length
+<1100000 00000000 00000000>
+```
+"""
+bits(x::Real) = StaticBitVectorView(x)
+
+"""
+    bits(x::T, n) where {T<:Real}
+
+Create a view of the bits of `x` that is truncated to the first `n` bits.
+
+The underlying data is of type `T`. The truncated bits are zeroed.
+Indexing at positions larger than `n` will not error, but will return zero.
+
+# Examples
+```julia-repl
+julia> bits(0x5555)
+<01010101 01010101>
+
+julia> bits(0x5555, 10)
+<01 01010101>
+
+julia> bits(bits(0x5555, 10))
+<00000001 01010101>
+```
+"""
+bits(x::Real, n) = StaticBitVector(x, n)
+
+bits(::IndexBase, x::Real, n) = bits(x, n)
+bits(::ZeroBased, x::Real, n) = StaticBitVector0(x, n)
+
+# ** StaticBitVector
+
+# similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
+abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
+
+struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
+    x::T
+end
+
+Base.zero(b::StaticBitVectorView) = bits(zero(b.x))
+Base.one(b::StaticBitVectorView) = bits(one(b.x))
+
+abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
+
+struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
+    x::T
+    len::Int
+    function StaticBitVector{T}(x::T, n::Integer) where {T<:Real}
+        return new(x & rightmask(T, n), n)
+    end
+end
+
+struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
+    x::T
+    len::Int
+    function StaticBitVector0{T}(x::T, n::Integer) where {T<:Real}
+        return new(x & rightmask(T, n), n)
+    end
+end
+
+StaticBitVector(x::T, n::Integer) where T = StaticBitVector{typeof(x)}(x, n)
+StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
+
+index_base(::Any) = OneBased()
+index_base(::Type{<:StaticBitVector0}) = ZeroBased()
+
+bitlength(x::AbstractStaticBitVector{T}) where T = bitsizeof(T)
+bitlength(x::AbstractStaticBitVectorLen) = x.len
+bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
+
+# TODO: could define ZeroTo. This is done ad hoc around Julia ecosystem
+Base.axes1(v::StaticBitVector0) = 0:(v.len - 1)
+
+#Base.size(v::StaticBitVectorView) = (bitlength(v.x),)
+Base.size(v::AbstractStaticBitVector) = (bitlength(v),)
+#Base.size(v::AbstractStaticBitVectorLen) = (v.len,)
+# Assume 1 "based"
+Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer) = tstbit(ib, v.x, i)
+Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
+#Base.getindex(v::StaticBitVector0{<:Any}, i::Integer) = getindex(ZeroBased(), v, i) #  Bits.tstbit(v.x, i + 1)
+
+function Base.getindex(v::AbstractStaticBitVector, a::AbstractVector{<:Integer})
+    xx, _ = foldl(a, init=(zero(asint(v.x)), 0)) do xs, i
+        x, s = xs
+        (x | getindex(v, i) << s, s+1) # better
+    end
+    v isa AbstractStaticBitVectorLen && return typeof(v)(xx, length(a))
+    return StaticBitVector(xx, length(a))
+end
+
+# TODO: zero based not implemented here
+# TODO: uses Bits.masked
+function Base.getindex(v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer})
+    j, i = extrema(a)
+    x = Bits.masked(asint(v.x), j-1, i) >> (j-1)
+    v isa AbstractStaticBitVectorLen && return typeof(v)(x, length(a))
+    return StaticBitVector(x, length(a))
+end
+
+const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
+for T in (_int_types..., :BigInt)
+    @eval (Base.$T)(x::AbstractStaticBitVector) = ($T)(x.x)
+end
+Base.Integer(x::AbstractStaticBitVector) = x.x
+
+for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
+    @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), x.len)
+    @eval (Base.$op)(x::StaticBitVectorView{T}, y::Real) where T = bits(($op)(x.x, T(y)))
+    @eval (Base.$op)(y::Real, x::StaticBitVectorView{T}) where T = bits(($op)(x, y))
+    @eval (Base.$op)(y::Real, x::AbstractStaticBitVectorLen{T}) where T = bits(($op)(x, y))
+    @eval (Base.$op)(y::AbstractStaticBitVectorLen, x::AbstractStaticBitVectorLen) =
+        (length(x) == length(y) || throw(DimensionMismatch()); bits(($op)(x.x, y.x), length(x)))
+    # @eval (Base.$op)(y::AbstractStaticBitVectorLen, x::AbstractStaticBitVectorLen) =
+    #     ((length(x) == length(y) || throw(DimensionMismatch(string($op) * ": $(x.len) != $(y.len)"))) ; bits(($op)(x.x, y.x), length(x)))
+end
+
+# TODO: Is there an accessor method for .x ?
+# We don't want lexicographic sorting. Also it uses slow fallback methods.
+Base.:(<)(v1::AbstractStaticBitVector, v2::AbstractStaticBitVector) = v1.x < v2.x
+Base.isless(v1::AbstractStaticBitVector, v2::AbstractStaticBitVector) = v1 < v2
+# Base.:(<)(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1.x < v2.x
+# Base.isless(v1::_Bits.AbstractBitVector1, v2::_Bits.AbstractBitVector1) = v1 < v2
+
+# Could maybe use args... above for these
+for op in (:(~),)
+    @eval (Base.$op)(x::StaticBitVector{T}) where T = bits(($op)(x.x), x.len)
+    @eval (Base.$op)(x::StaticBitVectorView{T}) where T = bits(($op)(x.x))
+end
+
+Base.zero(b::AbstractStaticBitVectorLen) = bits(zero(b.x), b.len)
+Base.one(b::AbstractStaticBitVectorLen) = bits(one(b.x), b.len)
+
+"""
+    reverse(b::AbstractStaticBitVectorLen)
+
+Return `b` with the bit order reversed.
+"""
+function Base.reverse(b::AbstractStaticBitVectorLen{T}) where T
+    c = zero(T)
+    for i in eachindex(b)
+        c |= b[i] << (lastindex(b) - i)
+    end
+    return bits(c, length(b))
+end
+
+# ** show
+
+sig_exp_bits(x) = Base.Math.significand_bits(typeof(x)), Base.Math.exponent_bits(typeof(x))
+sig_exp_bits(x::BigFloat) = precision(x), MPFR_EXP_BITSIZE
+
+showsep(io, v::AbstractStaticBitVector, i) = _showsep(io, v.x, i)
+showsep(io, v::StaticBitVector0, i) = _showsep(io, v.x, i + 1)
+
+_showsep(io, _, i) = (i % 8 == 0) && print(io, ' ')
+
+function _showsep(io, x::AbstractFloat, i)
+    sigbits, expbits = sig_exp_bits(x)
+    if i == sigbits || i == sigbits + expbits
+        print(io, '|')
+    elseif i < sigbits && i % 8 == 0 || i > sigbits && (i-sigbits) % 8 == 0
+        print(io, ' ')
+    end
+end
+
+function Base.show(io::IO, v::AbstractStaticBitVector)
+    if v.x isa BigInt && v isa StaticBitVector # TODO: not convinced about "infinite" num digits
+        print(io, "<...", v.x < 0 ? "1 " : "0 ")
+    else
+        print(io, "<")
+    end
+    for i = reverse(eachindex(v))
+        i != lastindex(v) && showsep(io, v, i)
+        show(io, v[i] % Int)
+    end
+    print(io, ">")
+end
+
+Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)

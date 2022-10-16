@@ -5,12 +5,11 @@ version = "0.1.1"
 
 [deps]
 BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
-Bits = "1654ce90-6ed3-553a-957f-9452c3a40996"
+Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
 
 [compat]
-julia = "1.6"
-Bits = "0.2"
 BitIntegers = "0.2"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

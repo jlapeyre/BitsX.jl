@@ -1,5 +1,15 @@
-using BitsX: BitsX, min_bits, undigits, bits, BitVector1Mask, min_uint_type, uint_type
+using BitsX: BitsX, min_bits, undigits, bits, min_uint_type, uint_type, bitsizeof,
+    StaticBitVector
 using Test
+
+@testset "bitsizeof" begin
+    @test bitsizeof(Bool) == 1
+    @test bitsizeof(Int64) == 64
+    @test bitsizeof(UInt64) == 64
+    @test bitsizeof(UInt8) == 8
+    @test_throws MethodError bitsizeof(BigInt)
+    @test_throws MethodError bitsizeof(BigFloat)
+end
 
 @testset "Bits.Xjl" begin
     n = 12345
@@ -9,12 +19,13 @@ using Test
     tup = (1,1,1,0,0,0)
     @test Tuple(bits(tup)) == tup
     @test Tuple(bits("000111")) == tup
-    @test Tuple(bits("<000111>")) == tup
+    @test Tuple(bits("<000111>"; strip=true)) == tup
+    @test_throws ArgumentError Tuple(bits("<000111>"; strip=false))
     @test string(bits(Tuple(bits("111000")))) == "<111000>"
     @test reverse(bits("111000")) == bits("000111")
 
-    @test bits("0101") isa BitVector1Mask{UInt8}
-    @test bits(Int, "0101") isa BitVector1Mask{Int}
+    @test bits("0101") isa StaticBitVector{UInt8}
+    @test bits(Int, "0101") isa StaticBitVector{Int}
 
     @test length(bits("1"^100)) == 100
     @test_throws OverflowError undigits(UInt, fill(1, 1000))
