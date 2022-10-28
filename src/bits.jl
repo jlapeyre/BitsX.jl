@@ -188,12 +188,23 @@ bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
 bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
 bit(::OneBased, args...) = bit(args...)
 
-# The string should be one byte per character
-function bit(v::String, i::Integer)
-    byte = codeunit(v, i)
+# TODO: allow elide bounds checking
+# Assume the string is one code unit per code point: '1' or '0'
+"""
+    bit(str::AbstractString, i::Integer)::Int
+
+Return `1` if the `i`th character of `str` is `'1'` and
+`0` if it is `'0'`. Otherwise throw an `ArgumentError`.
+
+It is assumed that `str` has one byte per character, or more precisely,
+one `UInt8` code unit per code point. Thus, accessing the `i`th character
+via `bit` may be more efficient than `str[i]`.
+"""
+function bit(str::AbstractString, i::Integer)
+    byte = codeunit(str, i)
     byte == _ZERO_CHAR_CODE && return 0
     byte == _ONE_CHAR_CODE && return 1
-    error("Invalid character code $byte for bit")
+    throw(ArgumentError("Invalid character code $byte for bit"))
 end
 
 function bit(v, i::Integer)
@@ -542,9 +553,9 @@ Return `true` if all characters in `bit_str` are either `'0'` or `'1'`,
 otherwise `false`.
 If `throw` is `true`, then throw an error rather than returning `false`.
 """
-function is_bitstring_new(bit_str::AbstractString; throw=false)
+function is_bitstring(bit_str::AbstractString; throw=false)
     for c in codeunits(bit_str)
-        if !(c == _ONE_CHAR_CODE || c == _ZERO_CHAR_CODE)
+        if c != _ONE_CHAR_CODE && c != _ZERO_CHAR_CODE
             throw && Base.throw(
                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
             return false
@@ -553,28 +564,13 @@ function is_bitstring_new(bit_str::AbstractString; throw=false)
     return true
 end
 
-
-# This is slower
-# function is_bitstring(bit_str::AbstractString; throw=false)
-#     for c in bit_str
-#         if !(c === '1' || c === '0')
-#             throw && Base.throw(
-#                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
-#             return false
-#         end
-#     end
-#     return true
-# end
-
-
-
 """
-    bool_tuple([IntT=Bool], bit_str::AbstractString)
+    bool_tuple([IntT=Bool], bit_str::AbstractString; check=true)
 
 Parse `bit_str` to a `Tuple` of `Bool`s.
 
 If `IntT` is supplied then return a `Tuple` of `one(IntT)` and `zero(IntT)`.
-`bit_str` is first validated.
+`bit_str` is first validated if `check` is `true`.
 
 # Examples
 
@@ -586,10 +582,12 @@ julia> bool_tuple(Int, "10010")
 (1, 0, 0, 1, 0)
 ```
 """
-bool_tuple(bit_str::AbstractString) = bool_tuple(Bool, bit_str::AbstractString)
-@inline function bool_tuple(::Type{IntT}, bit_str::AbstractString) where IntT
-    is_bitstring(bit_str; throw=true)
-    return ((c == '1' ? one(IntT) : zero(IntT) for c in bit_str)...,)
+bool_tuple(bit_str::AbstractString; check=true) =
+    bool_tuple(Bool, bit_str::AbstractString; check=check)
+
+@inline function bool_tuple(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
+    check && is_bitstring(bit_str; throw=true)
+    return Tuple(c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
 end
 
 
@@ -611,18 +609,13 @@ Parse `bit_str` to a `Vector{Bool}`.
 Return instead a `Vector{IntT}` if `IntT` is passed.
 `bit_str` is first validated.
 """
-bool_vector(bit_str::AbstractString) = bool_vector(Bool, bit_str)
+bool_vector(bit_str::AbstractString; check=true) =
+    bool_vector(Bool, bit_str::AbstractString; check=check)
 
-function bool_vector(::Type{IntT}, bit_str::AbstractString) where IntT
-    tup = bool_tuple(bit_str)
-    vec = Vector{IntT}(undef, length(tup))
-    for i in eachindex(tup)
-        @inbounds vec[i] = tup[i]
-    end
-    return vec
+@inline function bool_vector(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
+    check && is_bitstring(bit_str; throw=true)
+    return [c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
 end
-
-
 
 # Copied from Bits.jl
 """
@@ -731,8 +724,13 @@ bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
 Base.axes1(v::StaticBitVector0) = 0:(bitlength(v) - 1)
 
 Base.size(v::AbstractStaticBitVector) = (bitlength(v),)
+
 # Assume 1 "based"
-Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer) = tstbit(ib, v.x, i)
+# TODO!: do bounds checking
+function Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer)
+    return tstbit(ib, v.x, i)
+end
+
 Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
 
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractVector{<:Integer})
@@ -769,6 +767,17 @@ end
 StaticBitVectorN(x::T, ::Val{N}) where {T, N} = StaticBitVectorN{T, N}(x)
 bitlength(::StaticBitVectorN{<:Any, N}) where N = N
 
+# WARNING: These definitions allow, for example efficient inserting an Int into a Dictionary
+# with StaticBitVectorN keys. But, it may have unintended consequences for hashing
+# Advantage is this is more general than writing methods for Dicitonary and we
+# don't have to depend on Dictionaries
+Base.isequal(v::StaticBitVectorN, x) = isequal(x, v.x)
+Base.isequal(v1::StaticBitVectorN, v2::StaticBitVectorN) = isequal(v1.x, v2.x)
+
+Base.convert(::Type{StaticBitVectorN{T,N}}, x) where {T, N} = StaticBitVectorN{T,N}(T(x))
+Base.convert(::Type{StaticBitVectorN{T,N}}, x::StaticBitVectorN{T,N}) where {T, N} = x
+
+# Try to improve perf by making N inferrable
 Base.setindex!(v::Array{<:StaticBitVectorN}, val::Union{Number,AbstractString}, inds::Int...) =
      _setindex!(v, val, inds...)
 

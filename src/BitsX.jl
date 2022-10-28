@@ -16,6 +16,8 @@ Tools for bits and masks. OUTOFDATEDOCS
 """
 module BitsX
 
+using Dictionaries: Dictionaries, Dictionary
+
 export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN
 export StaticBitVector, AbstractStaticBitVector
 export bitsizeof, bitlength
