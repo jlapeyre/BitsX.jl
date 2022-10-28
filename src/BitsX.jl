@@ -1,7 +1,7 @@
 """
     module BitsX
 
-Tools for bits and masks. This module is similar to and depends on Bits.jl.
+Tools for bits and masks. OUTOFDATEDOCS
 
 * Building masks (efficiently):
   `mask`, `rightmask`, `leftmask`, and `rangemask`.
@@ -16,7 +16,7 @@ Tools for bits and masks. This module is similar to and depends on Bits.jl.
 """
 module BitsX
 
-export bits, StaticBitVector, StaticBitVector0
+export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN
 export StaticBitVector, AbstractStaticBitVector
 export bitsizeof, bitlength
 export undigits, undigits2

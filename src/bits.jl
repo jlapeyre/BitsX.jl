@@ -156,6 +156,7 @@ asint(x::AbstractFloat) = reinterpret(Signed, x) # Signed gets all the types we 
 """
     masked(x, [j::Integer], i::Integer) -> typeof(x)
 
+TODO: old docs
 Return the result of applying the mask `mask(x, [j], i)` to `x`, i.e.
 `x & mask(x, [j], i)`.
 If `x` is a float, apply the mask to the underlying bits.
@@ -689,8 +690,13 @@ struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
 
-Base.zero(b::StaticBitVectorView) = bits(zero(b.x))
-Base.one(b::StaticBitVectorView) = bits(one(b.x))
+Base.convert(::Type{StaticBitVectorView{T}}, x) where T = StaticBitVectorView(T(x))
+
+Base.zero(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 0)
+Base.zero(::V) where V <: AbstractStaticBitVector = convert(V, 0)
+# what is `one` worth here?
+Base.one(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 1)
+Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 
@@ -710,6 +716,18 @@ struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
     end
 end
 
+struct StaticBitVectorN{T<:Real, N} <: AbstractStaticBitVectorLen{T}
+    x::T
+    function StaticBitVectorN{T, N}(x::T) where {T<:Real, N}
+        return new{T, N}(x & rightmask(T, N))
+    end
+    function StaticBitVectorN{T}(x::T, n::Integer) where {T<:Real}
+        return new{T, N}(x & rightmask(T, n))
+    end
+end
+
+StaticBitVectorN(x::T, ::Val{N}) where {T, N} = StaticBitVectorN{T, N}(x)
+bitlength(::StaticBitVectorN{<:Any, N}) where N = N
 StaticBitVector(x::T, n::Integer) where T = StaticBitVector{typeof(x)}(x, n)
 StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
 
@@ -721,15 +739,12 @@ bitlength(x::AbstractStaticBitVectorLen) = x.len
 bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
 
 # TODO: could define ZeroTo. This is done ad hoc around Julia ecosystem
-Base.axes1(v::StaticBitVector0) = 0:(v.len - 1)
+Base.axes1(v::StaticBitVector0) = 0:(bitlength(v) - 1)
 
-#Base.size(v::StaticBitVectorView) = (bitlength(v.x),)
 Base.size(v::AbstractStaticBitVector) = (bitlength(v),)
-#Base.size(v::AbstractStaticBitVectorLen) = (v.len,)
 # Assume 1 "based"
 Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer) = tstbit(ib, v.x, i)
 Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
-#Base.getindex(v::StaticBitVector0{<:Any}, i::Integer) = getindex(ZeroBased(), v, i) #  Bits.tstbit(v.x, i + 1)
 
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractVector{<:Integer})
     xx, _ = foldl(a, init=(zero(asint(v.x)), 0)) do xs, i
@@ -740,14 +755,15 @@ function Base.getindex(v::AbstractStaticBitVector, a::AbstractVector{<:Integer})
     return StaticBitVector(xx, length(a))
 end
 
-# TODO: zero based not implemented here
-# TODO: uses Bits.masked
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer})
-    j, i = extrema(a)
-    x = Bits.masked(asint(v.x), j-1, i) >> (j-1)
+    i0, i1 = extrema(a)
+    x = masked(asint(v.x), i0:i1) >> (i0-1)
     v isa AbstractStaticBitVectorLen && return typeof(v)(x, length(a))
     return StaticBitVector(x, length(a))
 end
+
+Base.getindex(::ZeroBased, v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer}) =
+    getindex(v, a .+ 1)
 
 const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
 for T in (_int_types..., :BigInt)
@@ -756,7 +772,7 @@ end
 Base.Integer(x::AbstractStaticBitVector) = x.x
 
 for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
-    @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), x.len)
+    @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), bitlength(x))
     @eval (Base.$op)(x::StaticBitVectorView{T}, y::Real) where T = bits(($op)(x.x, T(y)))
     @eval (Base.$op)(y::Real, x::StaticBitVectorView{T}) where T = bits(($op)(x, y))
     @eval (Base.$op)(y::Real, x::AbstractStaticBitVectorLen{T}) where T = bits(($op)(x, y))
@@ -775,12 +791,12 @@ Base.isless(v1::AbstractStaticBitVector, v2::AbstractStaticBitVector) = v1 < v2
 
 # Could maybe use args... above for these
 for op in (:(~),)
-    @eval (Base.$op)(x::StaticBitVector{T}) where T = bits(($op)(x.x), x.len)
+    @eval (Base.$op)(x::StaticBitVector{T}) where T = bits(($op)(x.x), bitlength(x))
     @eval (Base.$op)(x::StaticBitVectorView{T}) where T = bits(($op)(x.x))
 end
 
-Base.zero(b::AbstractStaticBitVectorLen) = bits(zero(b.x), b.len)
-Base.one(b::AbstractStaticBitVectorLen) = bits(one(b.x), b.len)
+Base.zero(b::AbstractStaticBitVectorLen) = bits(zero(b.x), bitlength(b))
+Base.one(b::AbstractStaticBitVectorLen) = bits(one(b.x), bitlength(b))
 
 """
     reverse(b::AbstractStaticBitVectorLen)
@@ -828,3 +844,7 @@ function Base.show(io::IO, v::AbstractStaticBitVector)
 end
 
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
+
+# function Base.convert(::Type{StaticBitVector{T}}, x) where T
+#     return bits(T(x), bitlength(x))
+# end
