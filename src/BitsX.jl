@@ -16,8 +16,6 @@ Tools for bits and masks. OUTOFDATEDOCS
 """
 module BitsX
 
-using Dictionaries: Dictionaries, Dictionary
-
 export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN
 export StaticBitVector, AbstractStaticBitVector
 export bitsizeof, bitlength
@@ -32,9 +30,6 @@ export bit_string, bit_string!, is_bitstring, bit_vector, bit_vector2, bool_tupl
 
 const Word = UInt
 
-#include("dictstaticbits.jl")
-include("bitintegers.jl")
 include("bits.jl")
-#include("static_bitvector.jl")
 
 end # module BitsX

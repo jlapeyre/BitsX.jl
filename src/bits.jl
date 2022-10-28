@@ -1,3 +1,58 @@
+###
+### BitInteger support
+###
+
+using BitIntegers: BitIntegers, UInt512, UInt1024
+
+const _UINT_TYPES = Dict{Int, DataType}()
+
+for n in (8, 16, 32, 64, 128, 512, 1024)
+    _UINT_TYPES[n] = eval(Symbol(:UInt, n))
+end
+
+"""
+    min_uint_type(nbits::Integer)
+
+Return the smallest unsigned integer type large enough to store `nbits` bits.
+The number of bits in the type returned is a multiple of 8.
+"""
+function min_uint_type(nbits::Integer)::DataType
+    nbits >= 0 || throw(DomainError(nbits, "Must be non-negative."))
+    nbits == 0 && return UInt8
+    (q, r) = divrem(nbits, 8)
+    if iszero(r)
+        return uint_type(nbits)
+    else
+        return uint_type((q + 1) * 8)
+    end
+end
+
+"""
+    uint_type(n::Int)
+
+Return an `n`-bit unsigned integers type `UIntn`.
+`n` must be a positive mulitple of `8`.
+
+If `UIntn` does not exist, construct `UIntn` and `Intn`.
+"""
+@inline function uint_type(n::Integer)
+    _type = get(_UINT_TYPES, n, nothing)
+    if !isnothing(_type)
+        return _type
+    end
+    n >= 0 || throw(DomainError(n, "Must be non-negative."))
+    n % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
+    uint_sym = Symbol(:UInt, n)
+    eval(Meta.parse("BitIntegers.@define_integers $n"))
+    _uint_type::DataType = eval(uint_sym)
+    _UINT_TYPES[n] = _uint_type
+    return _uint_type
+end
+
+###
+### bitsizeof
+###
+
 const _ZERO_CHAR_CODE = Int('0')
 const _ONE_CHAR_CODE = Int('1')
 
@@ -592,22 +647,26 @@ end
 
 
 # TODO: could save this allocation probably
-# TODO: the tuple is probably inefficient, especially for large strings
 """
-    bit_vector(bit_str::AbstractString)
+    bit_vector(bit_str::AbstractString; check=true)
 
-Parse `bit_str` to a `BitVector`. `bit_str` is first validated.
+Parse `bit_str` to a `BitVector`. If `check` is `true` then `bit_str` is first validated.
 """
-bit_vector(bit_str::AbstractString) = BitVector(bool_tuple(bit_str))
+bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str; check=check))
 
+# much slower to use generator, although memory usage may be smaller
+@inline function bit_vector_old(bit_str::AbstractString; check=true)
+    check && is_bitstring(bit_str; throw=true)
+    return BitVector(c == _ONE_CHAR_CODE ? true : false for c in codeunits(bit_str))
+end
 
 """
-    bool_vector([IntT=Bool], bit_str::AbstractString)
+    bool_vector([IntT=Bool], bit_str::AbstractString; check=true)
 
 Parse `bit_str` to a `Vector{Bool}`.
 
 Return instead a `Vector{IntT}` if `IntT` is passed.
-`bit_str` is first validated.
+If `check` is `true` then `bit_str` is first validated.
 """
 bool_vector(bit_str::AbstractString; check=true) =
     bool_vector(Bool, bit_str::AbstractString; check=check)
@@ -617,7 +676,7 @@ bool_vector(bit_str::AbstractString; check=true) =
     return [c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
 end
 
-# Copied from Bits.jl
+# Copied doc from Bits.jl
 """
     bits(x::Real)
 
@@ -866,7 +925,3 @@ function Base.show(io::IO, v::AbstractStaticBitVector)
 end
 
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
-
-# function Base.convert(::Type{StaticBitVector{T}}, x) where T
-#     return bits(T(x), bitlength(x))
-# end
