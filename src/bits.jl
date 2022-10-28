@@ -716,18 +716,7 @@ struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
     end
 end
 
-struct StaticBitVectorN{T<:Real, N} <: AbstractStaticBitVectorLen{T}
-    x::T
-    function StaticBitVectorN{T, N}(x::T) where {T<:Real, N}
-        return new{T, N}(x & rightmask(T, N))
-    end
-    function StaticBitVectorN{T}(x::T, n::Integer) where {T<:Real}
-        return new{T, N}(x & rightmask(T, n))
-    end
-end
 
-StaticBitVectorN(x::T, ::Val{N}) where {T, N} = StaticBitVectorN{T, N}(x)
-bitlength(::StaticBitVectorN{<:Any, N}) where N = N
 StaticBitVector(x::T, n::Integer) where T = StaticBitVector{typeof(x)}(x, n)
 StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
 
@@ -765,10 +754,34 @@ end
 Base.getindex(::ZeroBased, v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer}) =
     getindex(v, a .+ 1)
 
+### StaticBitVectorN
+
+struct StaticBitVectorN{T<:Real, N} <: AbstractStaticBitVectorLen{T}
+    x::T
+    function StaticBitVectorN{T, N}(x::T) where {T<:Real, N}
+        return new{T, N}(x & rightmask(T, N))
+    end
+    function StaticBitVectorN{T}(x::T, n::Integer) where {T<:Real}
+        return new{T, N}(x & rightmask(T, n))
+    end
+end
+
+StaticBitVectorN(x::T, ::Val{N}) where {T, N} = StaticBitVectorN{T, N}(x)
+bitlength(::StaticBitVectorN{<:Any, N}) where N = N
+
+Base.setindex!(v::Array{<:StaticBitVectorN}, val::Union{Number,AbstractString}, inds::Int...) =
+     _setindex!(v, val, inds...)
+
+function _setindex!(
+    v::Array{StaticBitVectorN{T,N}}, val::Union{Number,AbstractString}, inds...) where {T, N}
+    return setindex!(v, StaticBitVectorN{T,N}(val), inds...)
+end
+
 const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
 for T in (_int_types..., :BigInt)
     @eval (Base.$T)(x::AbstractStaticBitVector) = ($T)(x.x)
 end
+
 Base.Integer(x::AbstractStaticBitVector) = x.x
 
 for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
