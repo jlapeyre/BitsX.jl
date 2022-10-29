@@ -1,60 +1,9 @@
 ###
-### BitInteger support
-###
-
-using BitIntegers: BitIntegers, UInt512, UInt1024
-
-const _UINT_TYPES = Dict{Int, DataType}()
-
-for n in (8, 16, 32, 64, 128, 512, 1024)
-    _UINT_TYPES[n] = eval(Symbol(:UInt, n))
-end
-
-"""
-    min_uint_type(nbits::Integer)
-
-Return the smallest unsigned integer type large enough to store `nbits` bits.
-The number of bits in the type returned is a multiple of 8.
-"""
-function min_uint_type(nbits::Integer)::DataType
-    nbits >= 0 || throw(DomainError(nbits, "Must be non-negative."))
-    nbits == 0 && return UInt8
-    (q, r) = divrem(nbits, 8)
-    if iszero(r)
-        return uint_type(nbits)
-    else
-        return uint_type((q + 1) * 8)
-    end
-end
-
-"""
-    uint_type(n::Int)
-
-Return an `n`-bit unsigned integers type `UIntn`.
-`n` must be a positive mulitple of `8`.
-
-If `UIntn` does not exist, construct `UIntn` and `Intn`.
-"""
-@inline function uint_type(n::Integer)
-    _type = get(_UINT_TYPES, n, nothing)
-    if !isnothing(_type)
-        return _type
-    end
-    n >= 0 || throw(DomainError(n, "Must be non-negative."))
-    n % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
-    uint_sym = Symbol(:UInt, n)
-    eval(Meta.parse("BitIntegers.@define_integers $n"))
-    _uint_type::DataType = eval(uint_sym)
-    _UINT_TYPES[n] = _uint_type
-    return _uint_type
-end
-
-###
 ### bitsizeof
 ###
 
-const _ZERO_CHAR_CODE = Int('0')
-const _ONE_CHAR_CODE = Int('1')
+const _ZERO_CHAR_CODE = UInt8('0')
+const _ONE_CHAR_CODE = UInt8('1')
 
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
@@ -318,58 +267,17 @@ unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
 # _Bits.bits(x::StaticBitVectorView) = x
 # _Bits.bits(x::StaticBitVector, n) = _Bits.bits(x.x, n)
 # _Bits.bits(x::StaticBitVectorView, n) = bits(x.x, n)
-# Base.count_ones(x::AbstractBitVector1) = Base.count_ones(x.x)
 # min_bits(x::_Bits.AbstractBitVector1) =  min_bits(x.x)
 
-# TODO: make this more robust. detect needed data type, etc.
+
 """
-    bits([T=UInt], s::AbstractString)
+    normalize_bitstring(str::AbstractString)
 
-Convert the string `s` representing a binary number to a `BitVector1Mask`. This
-method can be used to convert the string representation of
-an `b::AbstractBitVector1` back to `b`. So, it behaves like `Base.parse(::Int, x)`
-in that the bits in the string are in the same order as the bits in `b`.
-
-If `T` is not specified, the smallest unsigned integer type capable of representing `s`
-will be used.
-
-Spaces, and the characters '>', '<' are stripped from `s` if `strip` is `true`.
-
-# Examples
-```julia-repl
-julia> bits("00101")
-<00101>
-
-julia> bits("<01000000 11111111>")
-<01000000 11111111>
-```
+Remove all characters (code points) from `str` that are not one
+of `'0'` and `'1'`, if such characters exist. Otherwise, return `str`
+unchanged.
 """
-function bits(::Type{T}, s::AbstractString; strip::Bool=false) where T
-    ss = strip ? _strip_bin_format(s) : s
-    return _bits(T, ss)
-end
-
-function bits(s::AbstractString; strip::Bool=false)
-    ss = strip ? _strip_bin_format(s) : s
-    return _bits(ss)
-end
-
-function _bits(ssimp::AbstractString)
-    return _bits(min_uint_type(length(ssimp)), ssimp)
-end
-
-function _bits(::Type{T}, ssimp::AbstractString) where T
-    x = parse(T, ssimp, base=2)
-    return StaticBitVector(x, length(ssimp))
-end
-
-# This is permissive
-function _strip_bin_format(s::AbstractString)
-    if all(x -> x in ('0', '1'), s)
-        return s
-    end
-    return replace(s, r"[^01]" => "")
-end
+normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
 
 # TODO: loosen this? Keep only '1' and '0' ?
 # function _strip_bin_format(s::AbstractString)
@@ -645,8 +553,6 @@ bool_tuple(bit_str::AbstractString; check=true) =
     return Tuple(c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
 end
 
-
-# TODO: could save this allocation probably
 """
     bit_vector(bit_str::AbstractString; check=true)
 
@@ -655,7 +561,7 @@ Parse `bit_str` to a `BitVector`. If `check` is `true` then `bit_str` is first v
 bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str; check=check))
 
 # much slower to use generator, although memory usage may be smaller
-@inline function bit_vector_old(bit_str::AbstractString; check=true)
+function _bit_vector_old(bit_str::AbstractString; check=true)
     check && is_bitstring(bit_str; throw=true)
     return BitVector(c == _ONE_CHAR_CODE ? true : false for c in codeunits(bit_str))
 end
@@ -750,6 +656,8 @@ Base.zero(::V) where V <: AbstractStaticBitVector = convert(V, 0)
 Base.one(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 1)
 Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
 
+Base.count_ones(x::AbstractStaticBitVector) = Base.count_ones(x.x)
+
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
@@ -759,6 +667,9 @@ struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
         return new(x & rightmask(T, n), n)
     end
 end
+
+StaticBitVector{T}(x::Real, n::Integer) where {T<:Real} = StaticBitVector{T}(T(x), n)
+
 
 struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
@@ -925,3 +836,123 @@ function Base.show(io::IO, v::AbstractStaticBitVector)
 end
 
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
+
+const BoolOrVal = Union{Bool, Val{true}, Val{false}}
+
+"""
+    bits([T], s::AbstractString)
+
+Convert the string `s` representing a binary number to a `StaticBitVector`. This
+method can be used to convert the string representation of
+an `b::StaticBitVector` back to `b`. So, it behaves like `Base.parse(::Int, x)`
+in that the bits in the string are in the same order as the bits in `b`.
+
+If `T` is not specified, the smallest unsigned integer type capable of representing `s`
+will be used.
+
+Spaces, and the characters '>', '<' are stripped from `s` if `strip` is `true`.
+
+# Examples
+```julia-repl
+julia> bits("00101")
+<00101>
+
+julia> bits("<01000000 11111111>")
+<01000000 11111111>
+```
+"""
+function bits(::Type{T}, ::Type{ST}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T <: Real, ST <: AbstractStaticBitVector}
+    return _bits(s, _toVal(strip), T, ST)
+end
+
+# Not sure why we have to do this. Forces specialization
+_toVal(x::Bool) = x ? Val(true) : Val(false)
+_toVal(x::Val) = x
+
+function bits(::Type{T}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T <: Real}
+    return _bits(s, _toVal(strip), T, StaticBitVector)
+end
+
+# The method is never dispatched to. The one below is preferred. So we have to work around
+# function bits(::Type{ST}, s::AbstractString; strip::Bool=false) where {ST <: AbstractStaticBitVector{T}} where T
+
+# There must be a better solution!
+_get_param(::Type{V}) where {V <: AbstractStaticBitVector} = isconcretetype(V) ? __get_param(V) : Nothing
+__get_param(::Type{V}) where {V <: AbstractStaticBitVector{T}} where T = T
+
+function bits(::Type{ST}, s::AbstractString; strip::BoolOrVal=Val(false)) where {ST <: AbstractStaticBitVector}
+    return _bits(s, _toVal(strip), _get_param(ST), ST)
+end
+
+# ensure that T is not computed later
+function bits(Ty::Type{StaticBitVectorN{T, N}}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T, N}
+    return _bits(s, _toVal(strip), T, Ty)
+end
+
+bits(s::AbstractString; strip::BoolOrVal=Val(false)) =
+    _bits(s, _toVal(strip), Nothing, StaticBitVector)
+
+_bits(s::AbstractString, ::Val{true}, ::Type{T}, ::Type{ST}) where {T, ST} =
+    _bits(normalize_bitstring(s), Val(false), T, ST)
+
+_bits(s::AbstractString, ::Val{false}, ::Type{Nothing}, ::Type{ST}) where {ST} =
+    _bits(s, Val(false), min_uint_type(ncodeunits(s)), ST)
+
+function _bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST}
+    x = parse(T, s, base=2)
+    return __bits(x, ncodeunits(s), T, ST)
+end
+
+__bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
+__bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
+__bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
+
+function myparse(s::String)
+    T = min_uint_type(ncodeunits(s))
+    return myparse(s, T)
+end
+
+# Hmm this can be faster than Base.parse. Or much slower
+function myparse(s::String, ::Type{T}) where T
+    x = zero(T)
+    c = codeunits(s)
+    _one = one(T)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x = x | _one << (i - 1)
+        end
+    end
+    return x
+end
+
+# bit shifting and oring may be slow, depending on T
+# Multiplying by 2 and adding seems uniformly faster
+
+
+#myparse2(s::AbstractString) = _myparse2_general(min_uint_type(ncodeunits(s)), s)
+myparse2(s::AbstractString) = myparse2(min_uint_type(ncodeunits(s)), s)
+
+@inline function myparse2(::Type{T}, s::AbstractString)::T where T
+    x::T = zero(T)
+    c = codeunits(s)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x += facs104[i]
+        end
+    end
+    return x
+end
+
+@inline function _myparse2_general(::Type{T}, s::AbstractString)::T where T
+    x::T = zero(T)
+    fac::T = one(T)
+    c = codeunits(s)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x += fac
+        end
+        fac *= 2
+    end
+    return x
+end
+
