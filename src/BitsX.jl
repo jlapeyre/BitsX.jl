@@ -26,7 +26,8 @@ export OneBased, ZeroBased
 export mask, masked, leftmask, rightmask, rangemask,
     asint, bit, tstbit, unsafe_tstbit, min_bits, min_dits
 
-export bit_string, bit_string!, is_bitstring, bit_vector, bit_vector2, bool_tuple, bool_vector
+export is_bitstring, bit_string, normalize_bitstring,
+    bit_string!, bit_vector, bit_vector2, bool_tuple, bool_vector
 
 const Word = UInt
 
