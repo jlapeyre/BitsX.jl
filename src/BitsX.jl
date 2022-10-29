@@ -31,6 +31,7 @@ export is_bitstring, bit_string, normalize_bitstring,
 
 const Word = UInt
 
+include("bitintegers.jl")
 include("bits.jl")
 
 end # module BitsX

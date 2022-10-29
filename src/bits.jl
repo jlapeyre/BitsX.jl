@@ -1,60 +1,9 @@
 ###
-### BitInteger support
-###
-
-using BitIntegers: BitIntegers, UInt512, UInt1024
-
-const _UINT_TYPES = Dict{Int, DataType}()
-
-for n in (8, 16, 32, 64, 128, 512, 1024)
-    _UINT_TYPES[n] = eval(Symbol(:UInt, n))
-end
-
-"""
-    min_uint_type(nbits::Integer)
-
-Return the smallest unsigned integer type large enough to store `nbits` bits.
-The number of bits in the type returned is a multiple of 8.
-"""
-function min_uint_type(nbits::Integer)::DataType
-    nbits >= 0 || throw(DomainError(nbits, "Must be non-negative."))
-    nbits == 0 && return UInt8
-    (q, r) = divrem(nbits, 8)
-    if iszero(r)
-        return uint_type(nbits)
-    else
-        return uint_type((q + 1) * 8)
-    end
-end
-
-"""
-    uint_type(n::Int)
-
-Return an `n`-bit unsigned integers type `UIntn`.
-`n` must be a positive mulitple of `8`.
-
-If `UIntn` does not exist, construct `UIntn` and `Intn`.
-"""
-@inline function uint_type(n::Integer)
-    _type = get(_UINT_TYPES, n, nothing)
-    if !isnothing(_type)
-        return _type
-    end
-    n >= 0 || throw(DomainError(n, "Must be non-negative."))
-    n % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
-    uint_sym = Symbol(:UInt, n)
-    eval(Meta.parse("BitIntegers.@define_integers $n"))
-    _uint_type::DataType = eval(uint_sym)
-    _UINT_TYPES[n] = _uint_type
-    return _uint_type
-end
-
-###
 ### bitsizeof
 ###
 
-const _ZERO_CHAR_CODE = Int('0')
-const _ONE_CHAR_CODE = Int('1')
+const _ZERO_CHAR_CODE = UInt8('0')
+const _ONE_CHAR_CODE = UInt8('1')
 
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
@@ -957,3 +906,53 @@ end
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
+
+function myparse(s::String)
+    T = min_uint_type(ncodeunits(s))
+    return myparse(s, T)
+end
+
+# Hmm this can be faster than Base.parse. Or much slower
+function myparse(s::String, ::Type{T}) where T
+    x = zero(T)
+    c = codeunits(s)
+    _one = one(T)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x = x | _one << (i - 1)
+        end
+    end
+    return x
+end
+
+# bit shifting and oring may be slow, depending on T
+# Multiplying by 2 and adding seems uniformly faster
+
+
+#myparse2(s::AbstractString) = _myparse2_general(min_uint_type(ncodeunits(s)), s)
+myparse2(s::AbstractString) = myparse2(min_uint_type(ncodeunits(s)), s)
+
+@inline function myparse2(::Type{T}, s::AbstractString)::T where T
+    x::T = zero(T)
+    c = codeunits(s)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x += facs104[i]
+        end
+    end
+    return x
+end
+
+@inline function _myparse2_general(::Type{T}, s::AbstractString)::T where T
+    x::T = zero(T)
+    fac::T = one(T)
+    c = codeunits(s)
+    @inbounds for i in eachindex(c)
+        if c[i] == _ONE_CHAR_CODE
+            x += fac
+        end
+        fac *= 2
+    end
+    return x
+end
+
