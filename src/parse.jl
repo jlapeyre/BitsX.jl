@@ -10,10 +10,11 @@ The return type is `UIntT`. If the first argument is omitted, then
 the return type is the narrowest suitable unsigned integer type .
 """
 parse_bin(s) = parse_bin(_min_uint_type(s), s)
-parse_bin(::Type{T}, s::AbstractString) where T = parse_bin(T, codeunits(s))
+parse_bin(::Type{T}, s::AbstractString) where T = parse_bin(T, codeunits(s))::T
+parse_bin(::Type{T}, c::AbstractVector{UInt8}) where T = _parse_bin(T, c, get_masks(T))::T
 #parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(T, c, get_masks(T))
-parse_bin(::Type{T}, c::AbstractVector{UInt8}) where T = _parse_bin(T, c, get_masks(T))
-_parse_bin(::Type{T}, s::AbstractString, facs) where T = _parse_bin(T, codeunits(s), facs)
+
+_parse_bin(::Type{T}, s::AbstractString, facs) where T = _parse_bin(T, codeunits(s), facs)::T
 
 # c - code units, (or Vector{UInt8}, but unsafe_wrap allocates, codeunits does not)
 @inline function _parse_bin(::Type{T}, c, facs)::T where {T}
