@@ -1,11 +1,10 @@
 parse_bin(s::AbstractString) = _parse_bin(s, min_uint_type(ncodeunits(s)))
-parse_bin(::Type{T}, s::AbstractString) where T = _parse_bin(s, T)::T
 parse_bin(c::Base.CodeUnits) = _parse_bin(c, min_uint_type(length(c)))
-parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(c, T)::T
+parse_bin(::Type{T}, s) where T = _parse_bin(s, T)::T
 
 _parse_bin(s::AbstractString, ::Type{T}) where T = _parse_bin(codeunits(s), T)
-#_parse_bin(c::Base.CodeUnits, _byte_width, ::Type{T}) where T = __parse_bin(c, get_masks(T), T)
 _parse_bin(c::Base.CodeUnits, ::Type{T}) where T = __parse_bin(c, get_masks(T), T)
+
 __parse_bin(s::AbstractString, facs, ::Type{T}) where T = __parse_bin(codeunits(s), facs, T)
 
 # c - code units, (or Vector{UInt8}, but unsafe_wrap allocates, codeunits does not)
