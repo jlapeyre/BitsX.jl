@@ -1,7 +1,6 @@
 # Compute the narrowest unsigned integer type to represent binary number encoded in a string
-@inline _min_uint_type(s::AbstractString) = min_uint_type(ncodeunits(s))
-#_min_uint_type(v::AbstractVector{UInt8}) = min_uint_type(length(v))
-@inline _min_uint_type(v::Base.CodeUnits) = min_uint_type(length(v))
+_min_uint_type(s::AbstractString) = min_uint_type(ncodeunits(s))
+_min_uint_type(v::AbstractVector{UInt8}) = min_uint_type(length(v))
 
 """
     parse_bin([::Type{UIntT}], s::AbstractString)
@@ -11,17 +10,10 @@ The return type is `UIntT`. If the first argument is omitted, then
 the return type is the narrowest suitable unsigned integer type .
 """
 parse_bin(s) = parse_bin(_min_uint_type(s), s)
-parse_bin(s::AbstractString) = parse_bin(min_uint_type(ncodeunits(s)), s)
-# function parse_bin(s)
-#     T = _min_uint_type(s)
-#     parse_bin(T, s)
-# end
-#parse_bin(c::Base.CodeUnits) = parse_bin(min_uint_type(length(c)), c)
-@inline parse_bin(::Type{T}, s::AbstractString) where T = parse_bin(T, codeunits(s))::T
-@inline parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(T, c, get_masks(T))::T #need this annotation!?
-#@inline parse_bin(::Type{T}, c::AbstractVector{UInt8}) where T = _parse_bin(T, c, get_masks(T))
+parse_bin(::Type{T}, s::AbstractString) where T = parse_bin(T, codeunits(s))
+parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(T, c, get_masks(T))
 
-@inline _parse_bin(::Type{T}, s::AbstractString, facs) where T = _parse_bin(T, codeunits(s), facs)::T
+_parse_bin(::Type{T}, s::AbstractString, facs) where T = _parse_bin(T, codeunits(s), facs)
 
 # c - code units, (or Vector{UInt8}, but unsafe_wrap allocates, codeunits does not)
 @inline function _parse_bin(::Type{T}, c, facs)::T where {T}
