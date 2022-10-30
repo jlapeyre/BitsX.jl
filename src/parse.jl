@@ -4,17 +4,15 @@
 Convert an integer coded as a binary string to an unsigned integer.
 The return type is the narrowest suitable unsigned integer type .
 """
-parse_bin(s::AbstractString) = _parse_bin(s, min_uint_type(ncodeunits(s)))
-parse_bin(c::Base.CodeUnits) = _parse_bin(c, min_uint_type(length(c)))
-parse_bin(::Type{T}, s) where T = _parse_bin(s, T)::T
+parse_bin(s::AbstractString) = parse_bin(min_uint_type(ncodeunits(s)), s)
+parse_bin(c::Base.CodeUnits) = parse_bin(min_uint_type(length(c)), c)
+parse_bin(::Type{T}, s::AbstractString) where T = parse_bin(T, codeunits(s))
+parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(c, get_masks(T), T)
 
-_parse_bin(s::AbstractString, ::Type{T}) where T = _parse_bin(codeunits(s), T)
-_parse_bin(c::Base.CodeUnits, ::Type{T}) where T = __parse_bin(c, get_masks(T), T)
-
-__parse_bin(s::AbstractString, facs, ::Type{T}) where T = __parse_bin(codeunits(s), facs, T)
+_parse_bin(s::AbstractString, facs, ::Type{T}) where T = _parse_bin(codeunits(s), facs, T)
 
 # c - code units, (or Vector{UInt8}, but unsafe_wrap allocates, codeunits does not)
-@inline function __parse_bin(c, facs, ::Type{T})::T where {T}
+@inline function _parse_bin(c, facs, ::Type{T})::T where {T}
     x::T = zero(T)
     length(facs) >= length(c) || throw(BoundsError(facs, length(c))) # This line increases perf.
     @inbounds for i in eachindex(c)
@@ -23,7 +21,7 @@ __parse_bin(s::AbstractString, facs, ::Type{T}) where T = __parse_bin(codeunits(
     return x
 end
 
-function __parse_bin(c, ::Type{T})::T where T
+function _parse_bin(c, ::Type{T})::T where T
     x::T = zero(T)
     fac::T = one(T)
     @inbounds for i in eachindex(c)
