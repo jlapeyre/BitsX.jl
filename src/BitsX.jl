@@ -20,7 +20,7 @@ export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN
 export StaticBitVector, AbstractStaticBitVector
 export bitsizeof, bitlength
 export undigits, undigits2
-export uint_type, min_uint_type
+export uint_type, min_uint_type, min_uint_bit_width, min_uint_byte_width
 export OneBased, ZeroBased
 
 export mask, masked, leftmask, rightmask, rangemask,
@@ -29,9 +29,12 @@ export mask, masked, leftmask, rightmask, rangemask,
 export is_bitstring, bit_string, normalize_bitstring,
     bit_string!, bit_vector, bit_vector2, bool_tuple, bool_vector
 
+export parse_bin
+
 const Word = UInt
 
 include("bitintegers.jl")
+include("parse.jl")
 include("bits.jl")
 
 end # module BitsX
