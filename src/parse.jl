@@ -1,3 +1,9 @@
+"""
+    parse_bin(s::AbstractString)
+
+Convert an integer coded as a binary string to an unsigned integer.
+The return type is the narrowest suitable unsigned integer type .
+"""
 parse_bin(s::AbstractString) = _parse_bin(s, min_uint_type(ncodeunits(s)))
 parse_bin(c::Base.CodeUnits) = _parse_bin(c, min_uint_type(length(c)))
 parse_bin(::Type{T}, s) where T = _parse_bin(s, T)::T
