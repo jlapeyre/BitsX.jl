@@ -1,11 +1,12 @@
 function parse_bin(s::AbstractString)
-    _byte_width = min_uint_byte_width(ncodeunits(s))
-    uint_type = uint_type_bytes(_byte_width)
-#    return _parse_bin(s, _byte_width, uint_type)
+    # _byte_width = min_uint_byte_width(ncodeunits(s))
+    # uint_type = uint_type_bytes(_byte_width)
+    uint_type = min_uint_type(ncodeunits(s))
     return _parse_bin(s, uint_type)
 end
 
-parse_bin(::Type{T}, s::AbstractString) where T = _parse_bin(s, byte_width(T), T)::T
+#parse_bin(::Type{T}, s::AbstractString) where T = _parse_bin(s, byte_width(T), T)::T
+parse_bin(::Type{T}, s::AbstractString) where T = _parse_bin(s, T)::T
 
 function parse_bin(c::Base.CodeUnits)
     _byte_width = min_uint_byte_width(length(c))
@@ -13,12 +14,13 @@ function parse_bin(c::Base.CodeUnits)
     return _parse_bin(c, _byte_width, uint_type)
 end
 
-parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(c, byte_width(T), T)::T
+parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(c, T)::T
+#parse_bin(::Type{T}, c::Base.CodeUnits) where T = _parse_bin(c, byte_width(T), T)::T
 
 parse_bin(::Type{T}, s::AbstractString, _byte_width::Integer) where T = _parse_bin(s, _byte_width, T)
 
-_parse_bin(s::AbstractString, _byte_width::Integer, ::Type{T}) where T =
-    _parse_bin(codeunits(s), _byte_width, T)
+# _parse_bin(s::AbstractString, _byte_width::Integer, ::Type{T}) where T =
+#     _parse_bin(codeunits(s), _byte_width, T)
 
 _parse_bin(s::AbstractString, ::Type{T}) where T =
     _parse_bin(codeunits(s), T)
