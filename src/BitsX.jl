@@ -26,7 +26,7 @@ export OneBased, ZeroBased
 export mask, masked, leftmask, rightmask, rangemask,
     asint, bit, tstbit, unsafe_tstbit, min_bits, min_dits
 
-export is_bitstring, bit_string, normalize_bitstring,
+export is_bitstring, bit_string, normalize_bitstring, count_bits,
     bit_string!, bit_vector, bit_vector2, bool_tuple, bool_vector
 
 export parse_bin
