@@ -79,22 +79,24 @@ If `UIntX` does not exist construct `UIntX` and `IntX`.
 """
 @inline uint_type_bytes(n_bytes::Integer) = uint_type(8 * n_bytes)
 
-const _max_uint_fac = 128
-const _UINT_TYPES_TUP = Tuple(uint_type.([8 * i for i in 1:_max_uint_fac]))
-#const _UINT_TYPES_TUP = uint_type.([8 * i for i in 1:_max_uint_fac])
+const _max_uint_in_bytes = 128
+const _max_masks_in_bytes = 85
+# const _UINT_TYPES_TUP = Tuple(uint_type.([8 * i for i in 1:_max_uint_in_bytes]))
+const _UINT_TYPES_TUP = uint_type.([8 * i for i in 1:_max_uint_in_bytes])
 
 const _UINT_ONE_BIT_MASKS =
     let
         arr = Any[]
-        for i in 1:_max_uint_fac
+        max_masks_in_bytes = 85
+        for i in 1:_max_masks_in_bytes
             T = _UINT_TYPES_TUP[i]
-            tup = Tuple(T(2)^i for i in 0:(8*i - 1))
-#            tup = [T(2)^i for i in 0:(8*i - 1)]
+#            tup = Tuple(T(2)^i for i in 0:(8*i - 1))
+            tup = [T(2)^i for i in 0:(8*i - 1)]
             push!(arr, tup)
         end
 #        [arr...]
-#        arr # probably best to leave this as Any
-        Tuple(arr)
+        arr # probably best to leave this as Any
+#        Tuple(arr)
     end
 
 @inline function get_uint_one_bit_masks_bytes(n_bytes::Integer)
@@ -105,22 +107,28 @@ end
     @inbounds _UINT_ONE_BIT_MASKS[div(n_bits, 8)]
 end
 
-for n_bytes in 1:_max_uint_fac
+for n_bytes in 1:_max_uint_in_bytes
     n_bits = 8 * n_bytes
     _type = Symbol(:UInt, n_bits)
     @eval byte_width(::Type{$_type}) = $n_bytes
     @eval bit_width(::Type{$_type}) = $n_bits
-    _masks = get_uint_one_bit_masks_bytes(n_bytes)
-    @eval get_masks(::Type{$_type}) = $_masks
+    if n_bytes <= _max_masks_in_bytes
+        _masks = get_uint_one_bit_masks_bytes(n_bytes)
+        @eval get_one_bit_masks(::Type{$_type}) = $_masks
+    end
 end
 
-get_masks(_) = nothing
+"""
+    get_one_bit_masks(::Type{uint_type})
+
+Return an array of all single bit (powers of two) masks for `uint_type`.
+
+Masks are generated when `BitsX` is compiled. If masks are not available
+for a type, then the sentinel `nothing` is returned. This signifies that
+a routine that does not require masks should be used.
+"""
+get_one_bit_masks(_) = nothing
 
 @inline function get_uint_one_bit_masks_type(::Type{UIntT}) where {UIntT}
     return get_uint_one_bit_masks_bytes(byte_width(UIntT))
 end
-
-
-# const facs104 = Tuple(UInt104(2)^i for i in 0:103)
-# const facs128 = Tuple(UInt128(2)^i for i in 0:127)
-# const facs256 = Tuple(UInt256(2)^i for i in 0:255)
