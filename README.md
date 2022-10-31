@@ -15,6 +15,9 @@ For example
 * `bit_string` extends `Base.bitstring`
 * `bit_vector` converts a binary string to a `BitVector`.
 
+### Some features
 
-Some features in `Bits` are not reproduced in `BitsX`. For example `Bits.weight`, `scan0`, and others.
-They may be supported in the future.
+See the doc strings for these:
+* `parse_bin`
+* `bit`
+* `bits`
