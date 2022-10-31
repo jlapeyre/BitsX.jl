@@ -89,8 +89,11 @@ const _UINT_ONE_BIT_MASKS =
         for i in 1:_max_uint_fac
             T = _UINT_TYPES_TUP[i]
             tup = Tuple(T(2)^i for i in 0:(8*i - 1))
+#            tup = [T(2)^i for i in 0:(8*i - 1)]
             push!(arr, tup)
         end
+#        [arr...]
+#        arr # probably best to leave this as Any
         Tuple(arr)
     end
 
@@ -111,8 +114,7 @@ for n_bytes in 1:_max_uint_fac
     @eval get_masks(::Type{$_type}) = $_masks
 end
 
-# function get_uint_one_bit_masks_bits()
-# end
+get_masks(_) = nothing
 
 @inline function get_uint_one_bit_masks_type(::Type{UIntT}) where {UIntT}
     return get_uint_one_bit_masks_bytes(byte_width(UIntT))
