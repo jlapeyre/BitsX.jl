@@ -206,7 +206,7 @@ masked(args...) = masked(OneBased(), args...)
 Similar to `Bits.bit` from registered `Bits.jl` package. A difference is that
 the return type here does not depend on the input type, but rather is always `Int`.
 """
-bit(x::Integer, i::Integer) = (x >>> UInt(i-1)) & 1
+bit(x::Integer, i::Integer) = (Base.:(>>>)(x, UInt(i-1))) & 1
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
 bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
 bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
