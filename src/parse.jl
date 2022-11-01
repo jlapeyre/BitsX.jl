@@ -57,8 +57,9 @@ _parse_via_BigInt(::Type{T}, s::AbstractString) where T = T(parse(BigInt, _ensur
 @inline function __parse_bin(::Type{T}, c, one_bit_masks)::T where {T}
     x::T = zero(T)
     length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c))) # This line increases perf.
+    nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        ch::UInt8 = c[i]
+        ch::UInt8 = c[nmax - i + 1]
         if is_one_char(ch)
             x::T += one_bit_masks[i]::T
         elseif ! is_zero_char(ch)
@@ -73,11 +74,13 @@ __parse_bin_permissive(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # ge
 function __parse_bin_permissive(::Type{T}, c)::T where T
     x::T = zero(T)
     one_bit_mask::T = one(T)
+    nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        if is_one_char(c[i]::UInt8)
+        ch = c[nmax - i + 1]::UInt8
+        if is_one_char(ch)
             x += one_bit_mask
             one_bit_mask *= 2
-        elseif is_zero_char(c[i]::UInt8)
+        elseif is_zero_char(ch)
             one_bit_mask *= 2
         end
     end
@@ -97,23 +100,6 @@ function __parse_bin(::Type{T}, c)::T where T
     return x
 end
 
-## Don't use this. easy user bad input may cause segfault
-# @inline function __parse_bin_permissive(::Type{T}, c, one_bit_masks)::T where {T}
-#     x::T = zero(T)
-#     #    length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c))) # This line increases perf.
-#     # Need some kind of check here
-#     j::Int = 1
-#     @inbounds for i in eachindex(c)
-#         if c[i]::UInt8 == _ONE_CHAR_CODE
-#             x::T += one_bit_masks[j]::T
-#             j += 1
-#         elseif c[i]::UInt8 == _ZERO_CHAR_CODE
-#             j += 1
-#         end
-#     end
-#     return x
-# end
-
 """
     count_bits(s::AbstractString)
     count_bits(v::AbstractVector{UInt8})
@@ -124,12 +110,4 @@ It is assume that `s` is an ASCII string. `count_bits` may be useul if
 the string includes formatting characters, for example spaces.
 """
 count_bits(s::AbstractString) = count_bits(codeunits(s))
-function count_bits(v::AbstractVector{UInt8})
-    cnt = 0
-    for x::UInt8 in v
-        if is_binary_char(x) # x == _ZERO_CHAR_CODE || x == _ONE_CHAR_CODE
-            cnt += 1
-        end
-    end
-    return cnt
-end
+count_bits(v::AbstractVector{UInt8}) = count(is_binary_char, v)
