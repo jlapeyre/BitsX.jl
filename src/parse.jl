@@ -1,5 +1,9 @@
 using Base: CodeUnits
 
+###
+### Faster parse of binary string than `Base.parse`
+###
+
 # Compute the narrowest unsigned integer type to represent binary number encoded in a string
 _min_uint_type(s::AbstractString) = min_uint_type(ncodeunits(s))
 _min_uint_type(v::AbstractVector{UInt8}) = min_uint_type(length(v))
