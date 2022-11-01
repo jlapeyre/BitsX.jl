@@ -35,6 +35,7 @@ export BitStringVector, bitvecview
 const Word = UInt
 
 include("bitintegers.jl")
+include("bitintegers_extra.jl")
 include("parse.jl")
 include("bits.jl")
 

@@ -63,13 +63,13 @@ _parse_via_BigInt(::Type{T}, s::AbstractString) where T = T(parse(BigInt, _ensur
         if is_one_char(ch)
             x::T += one_bit_masks[i]::T
         elseif ! is_zero_char(ch)
-            throw(DomainError("Invalid byte in binary string ", ch))
+            throw(DomainError(ch, "Invalid byte in binary string "))
         end
     end
     return x
 end
 
-
+# TODO:  prefer reverse(eachindex(c))
 __parse_bin_permissive(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
 function __parse_bin_permissive(::Type{T}, c)::T where T
     x::T = zero(T)
@@ -91,8 +91,9 @@ __parse_bin(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks ret
 function __parse_bin(::Type{T}, c)::T where T
     x::T = zero(T)
     one_bit_mask::T = one(T)
+    nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        if is_one_char(c[i]::UInt8)
+        if is_one_char(c[nmax - i + 1]::UInt8)
             x += one_bit_mask
         end
         one_bit_mask *= 2
