@@ -9,7 +9,6 @@ is_one_char(x) = x == _ONE_CHAR_CODE
 is_zero_char(x) = x == _ZERO_CHAR_CODE
 is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
-
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
 # Convert `x` to the character `'0'` or `'1'`.
@@ -539,7 +538,6 @@ If `throw` is `true`, then throw an error rather than returning `false`.
 """
 function is_bitstring(bit_str::AbstractString; throw=false)
     for c in codeunits(bit_str)
-#        if c != _ONE_CHAR_CODE && c != _ZERO_CHAR_CODE
         if ! is_binary_char(c)
             throw && Base.throw(
                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
@@ -686,7 +684,8 @@ struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
     len::Int
     function StaticBitVector{T}(x::T, n::Integer) where {T<:Real}
-        return new(x & rightmask(T, n), n)
+        return new{T}(x & rightmask(T, n), n)
+#        return new{T}(x, n)
     end
 end
 
@@ -921,62 +920,14 @@ _bits(s::AbstractString, ::Val{false}, ::Type{Nothing}, ::Type{ST}) where {ST} =
     _bits(s, Val(false), min_uint_type(ncodeunits(s)), ST)
 
 function _bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST}
-    x = parse(T, s, base=2)
+#    x = parse(T, s, base=2)
+    x = parse_bin(T, s) # This is somewhat faster
     return __bits(x, ncodeunits(s), T, ST)
 end
 
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
-
-function myparse(s::String)
-    T = min_uint_type(ncodeunits(s))
-    return myparse(s, T)
-end
-
-# Hmm this can be faster than Base.parse. Or much slower
-function myparse(s::String, ::Type{T}) where T
-    x = zero(T)
-    c = codeunits(s)
-    _one = one(T)
-    @inbounds for i in eachindex(c)
-        if c[i] == _ONE_CHAR_CODE
-            x = x | _one << (i - 1)
-        end
-    end
-    return x
-end
-
-# bit shifting and oring may be slow, depending on T
-# Multiplying by 2 and adding seems uniformly faster
-
-
-#myparse2(s::AbstractString) = _myparse2_general(min_uint_type(ncodeunits(s)), s)
-myparse2(s::AbstractString) = myparse2(min_uint_type(ncodeunits(s)), s)
-
-@inline function myparse2(::Type{T}, s::AbstractString)::T where T
-    x::T = zero(T)
-    c = codeunits(s)
-    @inbounds for i in eachindex(c)
-        if c[i] == _ONE_CHAR_CODE
-            x += facs104[i]
-        end
-    end
-    return x
-end
-
-@inline function _myparse2_general(::Type{T}, s::AbstractString)::T where T
-    x::T = zero(T)
-    fac::T = one(T)
-    c = codeunits(s)
-    @inbounds for i in eachindex(c)
-        if c[i] == _ONE_CHAR_CODE
-            x += fac
-        end
-        fac *= 2
-    end
-    return x
-end
 
 ###
 ### BitStringVector{T<:AbstractString}

@@ -32,8 +32,6 @@ export is_bitstring, bit_string, normalize_bitstring, count_bits,
 export parse_bin
 export BitStringVector, bitvecview
 
-
-
 const Word = UInt
 
 include("bitintegers.jl")
