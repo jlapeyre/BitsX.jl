@@ -21,3 +21,5 @@ See the doc strings for these:
 * `parse_bin`
 * `bit`
 * `bits`
+* `count_bits`
+* `is_bitstring`

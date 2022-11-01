@@ -55,9 +55,9 @@ _parse_via_BigInt(::Type{T}, s::AbstractString) where T = T(parse(BigInt, _ensur
     length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c))) # This line increases perf.
     @inbounds for i in eachindex(c)
         ch::UInt8 = c[i]
-        if ch == _ONE_CHAR_CODE
+        if is_one_char(ch)
             x::T += one_bit_masks[i]::T
-        elseif ch != _ZERO_CHAR_CODE
+        elseif ! is_zero_char(ch)
             throw(DomainError("Invalid byte in binary string ", ch))
         end
     end
@@ -70,10 +70,10 @@ function __parse_bin_permissive(::Type{T}, c)::T where T
     x::T = zero(T)
     one_bit_mask::T = one(T)
     @inbounds for i in eachindex(c)
-        if c[i]::UInt8 == _ONE_CHAR_CODE
+        if is_one_char(c[i]::UInt8)
             x += one_bit_mask
             one_bit_mask *= 2
-        elseif c[i]::UInt8 == _ZERO_CHAR_CODE
+        elseif is_zero_char(c[i]::UInt8)
             one_bit_mask *= 2
         end
     end
@@ -85,7 +85,7 @@ function __parse_bin(::Type{T}, c)::T where T
     x::T = zero(T)
     one_bit_mask::T = one(T)
     @inbounds for i in eachindex(c)
-        if c[i]::UInt8 == _ONE_CHAR_CODE
+        if is_one_char(c[i]::UInt8)
             x += one_bit_mask
         end
         one_bit_mask *= 2
@@ -123,7 +123,7 @@ count_bits(s::AbstractString) = count_bits(codeunits(s))
 function count_bits(v::AbstractVector{UInt8})
     cnt = 0
     for x::UInt8 in v
-        if x == _ZERO_CHAR_CODE || x == _ONE_CHAR_CODE
+        if is_binary_char(x) # x == _ZERO_CHAR_CODE || x == _ONE_CHAR_CODE
             cnt += 1
         end
     end
