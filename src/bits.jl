@@ -7,6 +7,8 @@ const _ONE_CHAR_CODE = UInt8('1')
 
 is_one_char(x) = x == _ONE_CHAR_CODE
 is_zero_char(x) = x == _ZERO_CHAR_CODE
+is_one_char(x::Char) = is_one_char(UInt8(x))
+is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
 
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
@@ -15,6 +17,14 @@ function to_binary_char_code(x::T) where T
     iszero(x) && return _ZERO_CHAR_CODE
     isone(x) && return _ONE_CHAR_CODE
     throw(DomainError(x, "Must be 0 or 1."))
+end
+
+from_binary_char_code(::Type{T}, x::Char) where T = from_binary_char_code(T, UInt8(x))
+
+function from_binary_char_code(::Type{T}, x) where T
+    is_one_char(x) && return one(T)
+    is_zero_char(x) && return zero(T)
+    throw(DomainError(x, "Must be '0' or '1'."))
 end
 
 # bitsizeof should give how many "addressable" bits are in the object
@@ -981,18 +991,20 @@ struct BitStringVector{T<:AbstractString} <: AbstractVector{Bool}
 end
 
 """
-    bitstring_vector(str::AbstractString; check=true)
+    bitvecview(str::AbstractString; check=true)
 
 Return a view of the bitstring `str` as an `AbstractVector{Bool}`.
 
 No data is copied. If `check` is `true`, then `str` is validated
 upon construction. A valid `str` must consist of only `'0'` and `'1'`.
+Passing `false` for `check` with invalid `str` will likely give
+incorrect results, silently.
 
 If you instead convert `str` to `Vector{Bool}`, construction may take longer,
-but accessing will be faster. So `bitstring_vector` might be more useful if
+but accessing will be faster. So `bitvecview` might be more useful if
 you want to do only a few operations.
 """
-bitstring_vector(str::AbstractString; check=true) = BitStringVector(str; check=check)
+bitvecview(str::AbstractString; check=false) = BitStringVector(str; check=check)
 
 @inline Base.size(bs::BitStringVector) = (ncodeunits(bs.s),)
 @inline Base.IndexStyle(::BitStringVector) = Base.IndexLinear()
@@ -1004,7 +1016,7 @@ end
 
 @inline function Base.getindex(bs::BitStringVector, v::AbstractVector)
     @boundscheck checkbounds(bs, v)
-    return @inbounds bitstring_vector(bs.s[v])
+    return @inbounds bitvecview(bs.s[v])
 end
 
 @inline Base.sizeof(s::BitStringVector) = length(s) * sizeof(UInt8)
@@ -1019,6 +1031,10 @@ end
 end
 
 Base.String(bs::BitStringVector) = bs.s
+
+for func in (:reverse,)
+    @eval Base.$(func)(bs::BitStringVector, args...) = BitStringVector(Base.$(func)(bs.s))
+end
 
 ###
 
