@@ -5,6 +5,18 @@
 const _ZERO_CHAR_CODE = UInt8('0')
 const _ONE_CHAR_CODE = UInt8('1')
 
+is_one_char(x) = x == _ONE_CHAR_CODE
+is_zero_char(x) = x == _ZERO_CHAR_CODE
+
+is_binary_char(x) = is_one_char(x) || is_zero_char(x)
+
+# Convert `x` to the character `'0'` or `'1'`.
+function to_binary_char_code(x::T) where T
+    iszero(x) && return _ZERO_CHAR_CODE
+    isone(x) && return _ONE_CHAR_CODE
+    throw(DomainError(x, "Must be 0 or 1."))
+end
+
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
 """
@@ -206,8 +218,8 @@ via `bit` may be more efficient than `str[i]`.
 """
 function bit(str::AbstractString, i::Integer)
     byte = codeunit(str, i)
-    byte == _ZERO_CHAR_CODE && return 0
-    byte == _ONE_CHAR_CODE && return 1
+    is_zero_char(byte) && return 0
+    is_one_char(byte) && return 1
     throw(ArgumentError("Invalid character code $byte for bit"))
 end
 
@@ -443,8 +455,7 @@ function bit_string!(buf::Vector{UInt8}, v) #; pad::Union{Nothing,Integer}=0)
     j::Int = n_pad + 1
     @inbounds for i in eachindex(v)
         x = v[i]
-        buf[j] = iszero(x) ? _ZERO_CHAR_CODE : isone(x) ? _ONE_CHAR_CODE :
-            throw(DomainError(x, "Must be 0 or 1."))
+        buf[j] = to_binary_char_code(x)
         j += 1
     end
     return String(take!(IOBuffer(buf)))
@@ -518,7 +529,8 @@ If `throw` is `true`, then throw an error rather than returning `false`.
 """
 function is_bitstring(bit_str::AbstractString; throw=false)
     for c in codeunits(bit_str)
-        if c != _ONE_CHAR_CODE && c != _ZERO_CHAR_CODE
+#        if c != _ONE_CHAR_CODE && c != _ZERO_CHAR_CODE
+        if ! is_binary_char(c)
             throw && Base.throw(
                 DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
             return false
@@ -550,7 +562,7 @@ bool_tuple(bit_str::AbstractString; check=true) =
 
 @inline function bool_tuple(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
     check && is_bitstring(bit_str; throw=true)
-    return Tuple(c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
+    return Tuple(is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
 end
 
 """
@@ -563,7 +575,7 @@ bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str;
 # much slower to use generator, although memory usage may be smaller
 function _bit_vector_old(bit_str::AbstractString; check=true)
     check && is_bitstring(bit_str; throw=true)
-    return BitVector(c == _ONE_CHAR_CODE ? true : false for c in codeunits(bit_str))
+    return BitVector(is_one_char(c) ? true : false for c in codeunits(bit_str))
 end
 
 """
@@ -579,7 +591,7 @@ bool_vector(bit_str::AbstractString; check=true) =
 
 @inline function bool_vector(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
     check && is_bitstring(bit_str; throw=true)
-    return [c == _ONE_CHAR_CODE ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
+    return [is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
 end
 
 # Copied doc from Bits.jl
@@ -956,3 +968,98 @@ end
     return x
 end
 
+###
+### BitStringVector{T<:AbstractString}
+###
+
+struct BitStringVector{T<:AbstractString} <: AbstractVector{Bool}
+    s::T
+    function BitStringVector(s::AbstractString; check::Bool=true)
+        check && is_bitstring(s; throw=true)
+        return new{typeof(s)}(s)
+    end
+end
+
+"""
+    bitstring_vector(str::AbstractString; check=true)
+
+Return a view of the bitstring `str` as an `AbstractVector{Bool}`.
+
+No data is copied. If `check` is `true`, then `str` is validated
+upon construction. A valid `str` must consist of only `'0'` and `'1'`.
+
+If you instead convert `str` to `Vector{Bool}`, construction may take longer,
+but accessing will be faster. So `bitstring_vector` might be more useful if
+you want to do only a few operations.
+"""
+bitstring_vector(str::AbstractString; check=true) = BitStringVector(str; check=check)
+
+@inline Base.size(bs::BitStringVector) = (ncodeunits(bs.s),)
+@inline Base.IndexStyle(::BitStringVector) = Base.IndexLinear()
+
+@inline function Base.getindex(bs::BitStringVector, i::Integer)
+    @boundscheck checkbounds(bs, i)
+    @inbounds is_one_char(codeunit(bs.s, i))
+end
+
+@inline function Base.getindex(bs::BitStringVector, v::AbstractVector)
+    @boundscheck checkbounds(bs, v)
+    return @inbounds bitstring_vector(bs.s[v])
+end
+
+@inline Base.sizeof(s::BitStringVector) = length(s) * sizeof(UInt8)
+@inline Base.elsize(::Type{T}) where T <: BitStringVector = sizeof(Bool)
+
+@inline function Base.iterate(bs::BitStringVector, i=1)
+    if (i % UInt) - 1 < length(bs)
+        (@inbounds bs[i], i + 1)
+    else
+        nothing
+    end
+end
+
+Base.String(bs::BitStringVector) = bs.s
+
+###
+
+# function mysum(bs::BitStringVector)
+#     cnt = 0
+#     for v in bs
+#         v && (cnt += 1)
+#     end
+#     return cnt
+# end
+
+# function mysum1(bs::BitStringVector)
+#     cnt = 0
+#     @inbounds for i in eachindex(bs)
+# #    for i in eachindex(bs)
+#         bs[i] && (cnt += 1)
+#     end
+#     return cnt
+# end
+
+# mycountones(bs::BitStringVector) = mycountones(bs.s)
+# function mycountones(s)
+#     cnt = 0
+#     for ch in codeunits(s)
+#         if is_one_char(ch)
+#             cnt += 1
+#         end
+#     end
+#     return cnt
+# end
+
+# mycountones1(bs::BitStringVector) = mycountones(bs.s)
+
+# function mycountones1(s)
+#     cnt = 0
+#     cu = codeunits(s)
+#     @inbounds for i in eachindex(cu)
+# #    for i in eachindex(cu)
+#         if is_one_char(cu[i])
+#             cnt += 1
+#         end
+#     end
+#     return cnt
+# end

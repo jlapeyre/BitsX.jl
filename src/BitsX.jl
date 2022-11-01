@@ -30,6 +30,9 @@ export is_bitstring, bit_string, normalize_bitstring, count_bits,
     bit_string!, bit_vector, bit_vector2, bool_tuple, bool_vector
 
 export parse_bin
+export BitStringVector, bitstring_vector
+
+
 
 const Word = UInt
 
