@@ -46,11 +46,11 @@ bitsizeof(::Type{Bool}) = 1
 const MPFR_EXP_BITSIZE = bitsizeof(Clong) # bytes_to_bits(sizeof(Clong))
 
 """
-bitlength(x)
+bitlength(x::T)
 
-Return the number of bits in `x`. This is the number of
-bits that can be indexed via `bits`. If `x` is an `isbitstype`
-type, then this is the same as `bitsizeof(typeof(x))`.
+Return the number of bits in the instance `x` of type `T`.
+This is the number of bits that can be indexed via `bits`. If `x` is an `isbitstype`
+type, then this is the same as `bitsizeof(T)`.
 
 In contrast, if `x` is of type `BigInt` or `BigFloat` the number
 of bits is not encoded in the type, and in fact may vary from instance
@@ -205,13 +205,28 @@ masked(args...) = masked(OneBased(), args...)
 
 Similar to `Bits.bit` from registered `Bits.jl` package. A difference is that
 the return type here does not depend on the input type, but rather is always `Int`.
+(Check a. is this true and b. what do we prefer?)
 """
-bit(x::Integer, i::Integer) = (Base.:(>>>)(x, UInt(i-1))) & 1
+bit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Int
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
 bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
 bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
 bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
 bit(::OneBased, args...) = bit(args...)
+
+"""
+    bit0(x, i)
+
+Like `bit(x, i)` except the first bit has index `0` rather than `1`.
+"""
+bit0(x, i) = bit(ZeroBased(), x, i)
+
+"""
+    tstbit0(x, i)
+
+Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
+"""
+tstbit0(x, i) = tstbit(ZeroBased(), x, i)
 
 # TODO: allow elide bounds checking
 # Assume the string is one code unit per code point: '1' or '0'
@@ -664,6 +679,8 @@ bits(::ZeroBased, x::Real, n) = StaticBitVector0(x, n)
 # similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
 abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
 
+@inline datatype(::Type{<:AbstractStaticBitVector{T}}) where T = T
+
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
@@ -679,6 +696,7 @@ Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
 Base.count_ones(x::AbstractStaticBitVector) = Base.count_ones(x.x)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
+
 
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
@@ -709,6 +727,7 @@ index_base(::Type{<:StaticBitVector0}) = ZeroBased()
 
 bitlength(x::AbstractStaticBitVector{T}) where T = bitsizeof(T)
 bitlength(x::AbstractStaticBitVectorLen) = x.len
+# TODO use data_type above ?
 bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
 
 # TODO: could define ZeroTo. This is done ad hoc around Julia ecosystem
