@@ -27,8 +27,11 @@ export datatype
 export mask, masked, leftmask, rightmask, rangemask,
     asint, bit, bit0, tstbit, tstbit0, unsafe_tstbit, min_bits, min_dits
 
-export is_bitstring, bit_string, normalize_bitstring, count_bits,
-    bit_string!, bit_vector, bit_vector2, bool_tuple, bool_vector
+export is_bitstring, bit_string, normalize_bitstring, count_bits, bit_string!
+
+# obsolete: bit_vector, bit_vector2, bool_tuple, bool_vector
+
+export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code
 
 export parse_bin
 export BitStringVector, bitvecview
@@ -39,5 +42,6 @@ include("bitintegers.jl") # This is copied from BitIntegers.jl in order to inclu
 include("bitintegers_extra.jl")
 include("parse.jl")
 include("bits.jl")
+include("bitvecview.jl")
 
 end # module BitsX

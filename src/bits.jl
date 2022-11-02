@@ -12,19 +12,33 @@ is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
 # Convert `x` to the character `'0'` or `'1'`.
+"""
+    to_binary_char_code(x::T)
+
+Convert `x` to the character `'0'` or `'1'`.
+`x` must be equal to eithe `zero(T)` or `one(T)`.
+"""
 function to_binary_char_code(x::T) where T
     iszero(x) && return _ZERO_CHAR_CODE
     isone(x) && return _ONE_CHAR_CODE
     throw(DomainError(x, "Must be 0 or 1."))
 end
 
-from_binary_char_code(::Type{T}, x::Char) where T = from_binary_char_code(T, UInt8(x))
+from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 
-function from_binary_char_code(::Type{T}, x) where T
+"""
+    from_binary_char([::Type{T} = Bool], x)
+
+Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to
+`zero(T)` and `one(T)`.
+"""
+function from_binary_char(::Type{T}, x::UInt8) where T
     is_one_char(x) && return one(T)
     is_zero_char(x) && return zero(T)
     throw(DomainError(x, "Must be '0' or '1'."))
 end
+
+from_binary_char(x) = from_binary_char(Bool, x)
 
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
@@ -562,60 +576,69 @@ function is_bitstring(bit_str::AbstractString; throw=false)
     return true
 end
 
-"""
-    bool_tuple([IntT=Bool], bit_str::AbstractString; check=true)
+## Obsolete. bool_vector, bool_tuple, bit_vector are better done by
+## calling collect, Tuple, and BitVector, on a bitvecview.
+## The refactoring and code reuse is much higher.
+## They are also just as fast, or in the case of bit_vectore 2x faster
 
-Parse `bit_str` to a `Tuple` of `Bool`s.
+# Obsolete: use Tuple(bitvecview(str)) instead
+# """
+#     bool_tuple([IntT=Bool], bit_str::AbstractString; check=true)
 
-If `IntT` is supplied then return a `Tuple` of `one(IntT)` and `zero(IntT)`.
-`bit_str` is first validated if `check` is `true`.
+# Parse `bit_str` to a `Tuple` of `Bool`s.
 
-# Examples
+# If `IntT` is supplied then return a `Tuple` of `one(IntT)` and `zero(IntT)`.
+# `bit_str` is first validated if `check` is `true`.
 
-```julia-repl
-julia> bool_tuple("10010")
-(true, false, false, true, false)
+# # Examples
 
-julia> bool_tuple(Int, "10010")
-(1, 0, 0, 1, 0)
-```
-"""
-bool_tuple(bit_str::AbstractString; check=true) =
-    bool_tuple(Bool, bit_str::AbstractString; check=check)
+# ```julia-repl
+# julia> bool_tuple("10010")
+# (true, false, false, true, false)
 
-@inline function bool_tuple(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
-    check && is_bitstring(bit_str; throw=true)
-    return Tuple(is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
-end
+# julia> bool_tuple(Int, "10010")
+# (1, 0, 0, 1, 0)
+# ```
+# """
+# bool_tuple(bit_str::AbstractString; check=true) =
+#     bool_tuple(Bool, bit_str::AbstractString; check=check)
 
-"""
-    bit_vector(bit_str::AbstractString; check=true)
+# @inline function bool_tuple(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
+#     check && is_bitstring(bit_str; throw=true)
+#     return Tuple(is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
+# end
 
-Parse `bit_str` to a `BitVector`. If `check` is `true` then `bit_str` is first validated.
-"""
-bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str; check=check))
+# """
+#     bit_vector(bit_str::AbstractString; check=true)
+
+# Parse `bit_str` to a `BitVector`. If `check` is `true` then `bit_str` is first validated.
+# """
+# bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str; check=check))
+# #bit_vector(bit_str::AbstractString; check=true) = BitVector(collect(bitvecview(bit_str; check=check)))
+
 
 # much slower to use generator, although memory usage may be smaller
-function _bit_vector_old(bit_str::AbstractString; check=true)
-    check && is_bitstring(bit_str; throw=true)
-    return BitVector(is_one_char(c) ? true : false for c in codeunits(bit_str))
-end
+# function _bit_vector_old(bit_str::AbstractString; check=true)
+#     check && is_bitstring(bit_str; throw=true)
+#     return BitVector(is_one_char(c) ? true : false for c in codeunits(bit_str))
+# end
 
-"""
-    bool_vector([IntT=Bool], bit_str::AbstractString; check=true)
+# Obsolete: use collect(bitvecview(bit_str)) instead
+# """
+#     bool_vector([IntT=Bool], bit_str::AbstractString; check=true)
 
-Parse `bit_str` to a `Vector{Bool}`.
+# Parse `bit_str` to a `Vector{Bool}`.
 
-Return instead a `Vector{IntT}` if `IntT` is passed.
-If `check` is `true` then `bit_str` is first validated.
-"""
-bool_vector(bit_str::AbstractString; check=true) =
-    bool_vector(Bool, bit_str::AbstractString; check=check)
+# Return instead a `Vector{IntT}` if `IntT` is passed.
+# If `check` is `true` then `bit_str` is first validated.
+# """
+# bool_vector(bit_str::AbstractString; check=true) =
+#     bool_vector(Bool, bit_str::AbstractString; check=check)
 
-@inline function bool_vector(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
-    check && is_bitstring(bit_str; throw=true)
-    return [is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
-end
+# @inline function bool_vector(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
+#     check && is_bitstring(bit_str; throw=true)
+#     return [is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
+# end
 
 # Copied doc from Bits.jl
 """
@@ -948,63 +971,6 @@ __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
 
-###
-### BitStringVector{T<:AbstractString}
-###
-
-struct BitStringVector{T<:AbstractString} <: AbstractVector{Bool}
-    s::T
-    function BitStringVector(s::AbstractString; check::Bool=true)
-        check && is_bitstring(s; throw=true)
-        return new{typeof(s)}(s)
-    end
-end
-
-"""
-    bitvecview(str::AbstractString; check=true)
-
-Return a view of the bitstring `str` as an `AbstractVector{Bool}`.
-
-No data is copied. If `check` is `true`, then `str` is validated
-upon construction. A valid `str` must consist of only `'0'` and `'1'`.
-Passing `false` for `check` with invalid `str` will likely give
-incorrect results, silently.
-
-If you instead convert `str` to `Vector{Bool}`, construction may take longer,
-but accessing will be faster. So `bitvecview` might be more useful if
-you want to do only a few operations.
-"""
-bitvecview(str::AbstractString; check=false) = BitStringVector(str; check=check)
-
-@inline Base.size(bs::BitStringVector) = (ncodeunits(bs.s),)
-@inline Base.IndexStyle(::BitStringVector) = Base.IndexLinear()
-
-@inline function Base.getindex(bs::BitStringVector, i::Integer)
-    @boundscheck checkbounds(bs, i)
-    @inbounds is_one_char(codeunit(bs.s, i))
-end
-
-@inline function Base.getindex(bs::BitStringVector, v::AbstractVector)
-    @boundscheck checkbounds(bs, v)
-    return @inbounds bitvecview(bs.s[v])
-end
-
-@inline Base.sizeof(s::BitStringVector) = length(s) * sizeof(UInt8)
-@inline Base.elsize(::Type{T}) where T <: BitStringVector = sizeof(Bool)
-
-@inline function Base.iterate(bs::BitStringVector, i=1)
-    if (i % UInt) - 1 < length(bs)
-        (@inbounds bs[i], i + 1)
-    else
-        nothing
-    end
-end
-
-Base.String(bs::BitStringVector) = bs.s
-
-for func in (:reverse,)
-    @eval Base.$(func)(bs::BitStringVector, args...) = BitStringVector(Base.$(func)(bs.s))
-end
 
 ###
 
