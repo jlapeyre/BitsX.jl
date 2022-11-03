@@ -461,36 +461,40 @@ end
 
 bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
 
+# Following is Obsolete. Use String(bitstringview(v)) instead.
+# Faster, more code reuse etc. We don't get padding. But, that is perhaps
+# not very useful.
+
 # v -- an iterable of objects representing bit values as ones and zeros
-function bit_string(v; pad::Union{Nothing,Integer}=0)
-    n_buf = max(pad, length(v))
-    return bit_string!(Vector{UInt8}(undef, n_buf), v)
-end
+# function bit_string(v; pad::Union{Nothing,Integer}=0)
+#     n_buf = max(pad, length(v))
+#     return bit_string!(Vector{UInt8}(undef, n_buf), v)
+# end
 
-"""
-    bit_string!(buf::Vector{UInt8}, v)::String
+# """
+#     bit_string!(buf::Vector{UInt8}, v)::String
 
-Convert the iterable `v` of bit values into a bit string of length `length(buf)`
-with characters `0` and `1`.
-If `length(buf)` is greater than `length(v)`, then the excess characters are set
-to `0`.
+# Convert the iterable `v` of bit values into a bit string of length `length(buf)`
+# with characters `0` and `1`.
+# If `length(buf)` is greater than `length(v)`, then the excess characters are set
+# to `0`.
 
-`v` must have a length in the sense that the call `length(v)` must succeed.
-"""
-function bit_string!(buf::Vector{UInt8}, v) #; pad::Union{Nothing,Integer}=0)
-    n_pad = length(buf) - length(v)
-    n_pad < 0 && throw(BoundsError(buf, length(v)))
-    @inbounds for i in 1:n_pad
-        buf[i] = _ZERO_CHAR_CODE
-    end
-    j::Int = n_pad + 1
-    @inbounds for i in eachindex(v)
-        x = v[i]
-        buf[j] = to_binary_char_code(x)
-        j += 1
-    end
-    return String(take!(IOBuffer(buf)))
-end
+# `v` must have a length in the sense that the call `length(v)` must succeed.
+# """
+# function bit_string!(buf::Vector{UInt8}, v) #; pad::Union{Nothing,Integer}=0)
+#     n_pad = length(buf) - length(v)
+#     n_pad < 0 && throw(BoundsError(buf, length(v)))
+#     @inbounds for i in 1:n_pad
+#         buf[i] = _ZERO_CHAR_CODE
+#     end
+#     j::Int = n_pad + 1
+#     @inbounds for i in eachindex(v)
+#         x = v[i]
+#         buf[j] = to_binary_char_code(x)
+#         j += 1
+#     end
+#     return String(take!(IOBuffer(buf)))
+# end
 
 
 """
