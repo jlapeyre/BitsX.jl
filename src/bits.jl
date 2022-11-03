@@ -73,9 +73,6 @@ of bits is not encoded in the type, and in fact may vary from instance
 to instance.
 """
 bitlength(x::T) where T = bitsizeof(T)
-# bitlength(x::T) where T = _bitlength(Val(isbitstype(T)), T)
-# _bitlength(isbits::Val{true}, T::Type) = bitsizeof(T)
-# _bitlength(isbits::Val{false}, T::Type) = throw(MethodError(bitlength, (T,)))
 bitlength(x::BigFloat) =  1 + MPFR_EXP_BITSIZE + precision(x)
 bitlength(x::BigInt) = abs(x.size) * Base.GMP.BITS_PER_LIMB # bitsizeof(Base.GMP.Limb)
 bitlength(x::AbstractVector{Bool}) = length(x)
@@ -322,12 +319,6 @@ unchanged.
 """
 normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
 
-# TODO: loosen this? Keep only '1' and '0' ?
-# function _strip_bin_format(s::AbstractString)
-#     ! any(x -> occursin(x, s), ('<', '>', ' ')) && return s
-#     return replace(s, r"[<>\s]" => "")
-# end
-
 const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
 # Not supplying `IntT` is much slower (+ 100ns) than it should be. It is much slower than the time
@@ -351,8 +342,6 @@ julia> bits((0,1,0,1))
 bits(_digits::_VEC_LIKE, n=length(_digits)) = bits(min_uint_type(n)::DataType, _digits, n)
 bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT =
     bits(undigits(IntT, _digits; base=2), n)
-
-# This is too slow: min_uint_type(n)::DataType
 
 """
     undigits([IntT=Int], A; base=10)
@@ -388,21 +377,6 @@ function _undigits_base_2(::Type{IntT}, A) where IntT <: Unsigned
     return n
 end
 
-# This works, but is slower on some tests
-#   bits(mapfoldl(i -> bit(b, i) << (n - i), |, 1:n), length(b))
-# function Base.reverse(b::BitVector1Mask{T}) where T
-#     n = length(b)
-#     bits(mapfoldl(i -> bit(b, i) << (n - i), |, 1:n), n)
-# end
-
-# Return Tuple instead
-# tupfindall(itr) = (n=count(itr); niter = (i for i in 1:n if itr[i]); NTuple{n, Int}((niter...,)))
-# tupfindall(itr) = ((n, iter) = ntupfindall(itr); NTuple{n,Int}((iter...,)))
-# ntupfindall(itr) = (n=count(itr); niter = (i for i in 1:n if itr[i]); (n, niter))
-# tupfindall(f, itr) = ((i for (i, x) in enumerate(itr) if f(x))...,)
-# findones(itr) = tupfindall(isone, itr)
-# findzeros(itr) = tupfindall(iszero, itr)
-
 ###
 ### More bit functions
 ###
@@ -422,16 +396,12 @@ end
 
 """
     bit_string(n::Integer; pad=nothing)
-    bit_string(v; pad=0)
 
 Give the literal bitstring representation of the number `n`. If `n` is a primitive type,
 `bit_string` is the same as `Base.bitstring`, except that the former allows specifying
 left padding.
 
-For `v` an iterable of known length, elements `x` in `v` are converted
-characters `'0'` and `'1'` using `zero(x)` and `one(x)`.
-
-`pad=0` ommits leading zeros in the output string
+`pad=0` omits leading zeros in the output string
 
 See also, `bit_vector`, `bool_vector`, and `bool_tuple`.
 
@@ -441,17 +411,11 @@ See also, `bit_vector`, `bool_vector`, and `bool_tuple`.
 julia> bit_string(128)
 "0000000000000000000000000000000000000000000000000000000010000000"
 
-julia> bit_string([1, 0, 1])
-"101"
-
 julia> bit_string(128; pad = 0)
 "10000000"
 
 julia> bit_string(128; pad = 9)
 "010000000"
-
-julia> bit_string(bits("1001"))
-"1001"
 ```
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
@@ -460,42 +424,6 @@ function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Intege
 end
 
 bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
-
-# Following is Obsolete. Use String(bitstringview(v)) instead.
-# Faster, more code reuse etc. We don't get padding. But, that is perhaps
-# not very useful.
-
-# v -- an iterable of objects representing bit values as ones and zeros
-# function bit_string(v; pad::Union{Nothing,Integer}=0)
-#     n_buf = max(pad, length(v))
-#     return bit_string!(Vector{UInt8}(undef, n_buf), v)
-# end
-
-# """
-#     bit_string!(buf::Vector{UInt8}, v)::String
-
-# Convert the iterable `v` of bit values into a bit string of length `length(buf)`
-# with characters `0` and `1`.
-# If `length(buf)` is greater than `length(v)`, then the excess characters are set
-# to `0`.
-
-# `v` must have a length in the sense that the call `length(v)` must succeed.
-# """
-# function bit_string!(buf::Vector{UInt8}, v) #; pad::Union{Nothing,Integer}=0)
-#     n_pad = length(buf) - length(v)
-#     n_pad < 0 && throw(BoundsError(buf, length(v)))
-#     @inbounds for i in 1:n_pad
-#         buf[i] = _ZERO_CHAR_CODE
-#     end
-#     j::Int = n_pad + 1
-#     @inbounds for i in eachindex(v)
-#         x = v[i]
-#         buf[j] = to_binary_char_code(x)
-#         j += 1
-#     end
-#     return String(take!(IOBuffer(buf)))
-# end
-
 
 """
     min_bits(n::Integer)
@@ -572,70 +500,6 @@ function is_bitstring(bit_str::AbstractString; throw=false)
     end
     return true
 end
-
-## Obsolete. bool_vector, bool_tuple, bit_vector are better done by
-## calling collect, Tuple, and BitVector, on a bitvecview.
-## The refactoring and code reuse is much higher.
-## They are also just as fast, or in the case of bit_vectore 2x faster
-
-# Obsolete: use Tuple(bitvecview(str)) instead
-# """
-#     bool_tuple([IntT=Bool], bit_str::AbstractString; check=true)
-
-# Parse `bit_str` to a `Tuple` of `Bool`s.
-
-# If `IntT` is supplied then return a `Tuple` of `one(IntT)` and `zero(IntT)`.
-# `bit_str` is first validated if `check` is `true`.
-
-# # Examples
-
-# ```julia-repl
-# julia> bool_tuple("10010")
-# (true, false, false, true, false)
-
-# julia> bool_tuple(Int, "10010")
-# (1, 0, 0, 1, 0)
-# ```
-# """
-# bool_tuple(bit_str::AbstractString; check=true) =
-#     bool_tuple(Bool, bit_str::AbstractString; check=check)
-
-# @inline function bool_tuple(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
-#     check && is_bitstring(bit_str; throw=true)
-#     return Tuple(is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str))
-# end
-
-# """
-#     bit_vector(bit_str::AbstractString; check=true)
-
-# Parse `bit_str` to a `BitVector`. If `check` is `true` then `bit_str` is first validated.
-# """
-# bit_vector(bit_str::AbstractString; check=true) = BitVector(bool_vector(bit_str; check=check))
-# #bit_vector(bit_str::AbstractString; check=true) = BitVector(collect(bitvecview(bit_str; check=check)))
-
-
-# much slower to use generator, although memory usage may be smaller
-# function _bit_vector_old(bit_str::AbstractString; check=true)
-#     check && is_bitstring(bit_str; throw=true)
-#     return BitVector(is_one_char(c) ? true : false for c in codeunits(bit_str))
-# end
-
-# Obsolete: use collect(bitvecview(bit_str)) instead
-# """
-#     bool_vector([IntT=Bool], bit_str::AbstractString; check=true)
-
-# Parse `bit_str` to a `Vector{Bool}`.
-
-# Return instead a `Vector{IntT}` if `IntT` is passed.
-# If `check` is `true` then `bit_str` is first validated.
-# """
-# bool_vector(bit_str::AbstractString; check=true) =
-#     bool_vector(Bool, bit_str::AbstractString; check=check)
-
-# @inline function bool_vector(::Type{IntT}, bit_str::AbstractString; check=true) where IntT
-#     check && is_bitstring(bit_str; throw=true)
-#     return [is_one_char(c) ? one(IntT) : zero(IntT) for c in codeunits(bit_str)]
-# end
 
 # Copied doc from Bits.jl
 """
@@ -717,13 +581,11 @@ Base.count_ones(x::AbstractStaticBitVector) = Base.count_ones(x.x)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 
-
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
     len::Int
     function StaticBitVector{T}(x::T, n::Integer) where {T<:Real}
         return new{T}(x & rightmask(T, n), n)
-#        return new{T}(x, n)
     end
 end
 
@@ -828,8 +690,6 @@ for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes
     @eval (Base.$op)(y::Real, x::AbstractStaticBitVectorLen{T}) where T = bits(($op)(x, y))
     @eval (Base.$op)(y::AbstractStaticBitVectorLen, x::AbstractStaticBitVectorLen) =
         (length(x) == length(y) || throw(DimensionMismatch()); bits(($op)(x.x, y.x), length(x)))
-    # @eval (Base.$op)(y::AbstractStaticBitVectorLen, x::AbstractStaticBitVectorLen) =
-    #     ((length(x) == length(y) || throw(DimensionMismatch(string($op) * ": $(x.len) != $(y.len)"))) ; bits(($op)(x.x, y.x), length(x)))
 end
 
 # TODO: Is there an accessor method for .x ?
@@ -848,6 +708,7 @@ end
 Base.zero(b::AbstractStaticBitVectorLen) = bits(zero(b.x), bitlength(b))
 Base.one(b::AbstractStaticBitVectorLen) = bits(one(b.x), bitlength(b))
 
+# TODO: reverse method for type T should be fundamental. For our type, built on top.
 """
     reverse(b::AbstractStaticBitVectorLen)
 
@@ -957,7 +818,6 @@ _bits(s::AbstractString, ::Val{false}, ::Type{Nothing}, ::Type{ST}) where {ST} =
     _bits(s, Val(false), min_uint_type(ncodeunits(s)), ST)
 
 function _bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST}
-#    x = parse(T, s, base=2)
     x = parse_bin(T, s) # This is somewhat faster
     return __bits(x, ncodeunits(s), T, ST)
 end
@@ -965,47 +825,3 @@ end
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
-
-###
-
-# function mysum(bs::BitStringVector)
-#     cnt = 0
-#     for v in bs
-#         v && (cnt += 1)
-#     end
-#     return cnt
-# end
-
-# function mysum1(bs::BitStringVector)
-#     cnt = 0
-#     @inbounds for i in eachindex(bs)
-# #    for i in eachindex(bs)
-#         bs[i] && (cnt += 1)
-#     end
-#     return cnt
-# end
-
-# mycountones(bs::BitStringVector) = mycountones(bs.s)
-# function mycountones(s)
-#     cnt = 0
-#     for ch in codeunits(s)
-#         if is_one_char(ch)
-#             cnt += 1
-#         end
-#     end
-#     return cnt
-# end
-
-# mycountones1(bs::BitStringVector) = mycountones(bs.s)
-
-# function mycountones1(s)
-#     cnt = 0
-#     cu = codeunits(s)
-#     @inbounds for i in eachindex(cu)
-# #    for i in eachindex(cu)
-#         if is_one_char(cu[i])
-#             cnt += 1
-#         end
-#     end
-#     return cnt
-# end
