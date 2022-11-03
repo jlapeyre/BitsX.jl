@@ -55,7 +55,7 @@ Return an `n_bits`-bit unsigned integers type `UIntn_bits`.
 
 If `UIntn` does not exist, construct `UIntn` and `Intn`.
 """
-@inline function uint_type(n_bits::Int)
+@inline function uint_type(n_bits::Int)# ::Type{<:BitIntegers.UBI} . This is only really slow
     _type = get_uint_type_bits(n_bits)
     if !isnothing(_type)
         return _type

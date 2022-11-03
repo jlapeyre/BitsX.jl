@@ -362,7 +362,10 @@ julia> bits((0,1,0,1))
 <0101>
 ```
 """
-bits(_digits::_VEC_LIKE, n::Int=length(_digits)) = bits(min_uint_type(n), _digits, n)
+function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
+    return bits(min_uint_type(n), _digits, n)
+end
+
 bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT = # {IntT<:BitIntegers.UBI} =
     bits(undigits(IntT, _digits; base=2)::IntT, n)
 
