@@ -20,7 +20,7 @@ end
 Return the smallest unsigned integer type large enough to store `nbits` bits.
 The number of bits in the type returned is a multiple of 8.
 """
-@inline min_uint_type(n_bits::Integer) = uint_type(min_uint_bit_width(n_bits))
+@inline min_uint_type(n_bits::Int) = uint_type(min_uint_bit_width(n_bits))
 
 """
     min_uint_byte_width(n_bits::Integer)
@@ -28,8 +28,9 @@ The number of bits in the type returned is a multiple of 8.
 Return the minimum width in bytes of the unsigned integer needed to
 represent `nbits` bits. The widths are restricted to multiples of eight.
 """
-@inline function min_uint_byte_width(n_bits::Integer)
-    n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
+@inline function min_uint_byte_width(n_bits::Int)::Int
+    # TODO: Remove check for testing
+#    n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
     n_bits == 0 && return 1
     (q, r) = divrem(n_bits, 8)
     if iszero(r)
@@ -55,18 +56,22 @@ Return an `n_bits`-bit unsigned integers type `UIntn_bits`.
 
 If `UIntn` does not exist, construct `UIntn` and `Intn`.
 """
-@inline function uint_type(n_bits::Integer)
+@inline function uint_type(n_bits::Int)# ::Type{<:BitIntegers.UBI} . This is only really slow
     _type = get_uint_type_bits(n_bits)
     if !isnothing(_type)
         return _type
     end
-    n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
-    n_bits % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
-    uint_sym = Symbol(:UInt, n_bits)
-    eval(Meta.parse("BitIntegers.@define_integers $n_bits"))
-    _uint_type::DataType = eval(uint_sym)
+    # TODO: reinstate. These are removed for testing inference
+    # n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
+    # n_bits % 8 == 0 || throw(DomainError(n, "Must be a multiple of 8."))
+    _uint_type = _make_uint_type(n_bits)
     set_uint_type_bits!(_uint_type, n_bits)
     return _uint_type
+end
+
+function _make_uint_type(n_bits::Int)
+    eval(Meta.parse("BitIntegers.@define_integers $n_bits"))
+    return eval(Symbol(:UInt, n_bits))
 end
 
 """
@@ -81,18 +86,18 @@ If `UIntX` does not exist construct `UIntX` and `IntX`.
 
 const _max_uint_in_bytes = 128
 const _max_masks_in_bytes = 85
-# const _UINT_TYPES_TUP = Tuple(uint_type.([8 * i for i in 1:_max_uint_in_bytes]))
-const _UINT_TYPES_TUP = uint_type.([8 * i for i in 1:_max_uint_in_bytes])
+#const _UINT_TYPES_TUP = Tuple(uint_type.([8 * i for i in 1:_max_uint_in_bytes]))
+const _UINT_TYPES_VEC = uint_type.([8 * i for i in 1:_max_uint_in_bytes])
 
 const _UINT_ONE_BIT_MASKS =
     let
         arr = Any[]
         max_masks_in_bytes = 85
         for i in 1:_max_masks_in_bytes
-            T = _UINT_TYPES_TUP[i]
+            T = _UINT_TYPES_VEC[i]
 #            tup = Tuple(T(2)^i for i in 0:(8*i - 1))
-            tup = [T(2)^i for i in 0:(8*i - 1)]
-            push!(arr, tup)
+            vec = [T(2)^i for i in 0:(8*i - 1)]
+            push!(arr, vec)
         end
 #        [arr...]
         arr # probably best to leave this as Any

@@ -2,6 +2,9 @@
 ### bitsizeof
 ###
 
+const BoolOrVal = Union{Bool, Val{true}, Val{false}}
+const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
+
 const _ZERO_CHAR_CODE = UInt8('0')
 const _ONE_CHAR_CODE = UInt8('1')
 
@@ -34,10 +37,17 @@ from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to
 `zero(T)` and `one(T)`.
 """
-function from_binary_char(::Type{T}, x::UInt8) where T
+from_binary_char(::Type{T}, x::UInt8) where T = from_binary_char(T, x, Val(true))
+
+function from_binary_char(::Type{T}, x::UInt8, check::Val{true}) where T
     is_one_char(x) && return one(T)
     is_zero_char(x) && return zero(T)
     throw(DomainError(x, "Must be '0' or '1'."))
+end
+
+function from_binary_char(::Type{T}, x::UInt8, check::Val{false}) where T
+    is_one_char(x) && return one(T)
+    return zero(T)
 end
 
 from_binary_char(x) = from_binary_char(Bool, x)
@@ -86,7 +96,7 @@ are one, and all bits to the left of the `i`th bit (higher) are zero.
 See `leftmask`, `rangemask`, `mask`.
 # Examples
 ```julia-repl
-julia> bit_string(rightmask(UInt8, 3))
+julia> bitstring(rightmask(UInt8, 3))
 "00000111"
 ```
 """
@@ -109,7 +119,7 @@ are one, and all bits to the right of the `i`th bit (lower) are zero.
 See `rightmask`, `rangemask`, `mask`.
 # Examples
 ```julia-repl
-julia> bit_string(leftmask(UInt8, 3))
+julia> bitstring(leftmask(UInt8, 3))
 "11111100"
 ```
 """
@@ -131,13 +141,13 @@ See `leftmask`, `rightmask`, `mask`.
 
 # Examples
 ```julia-repl
-julia> bit_string(rangemask(UInt8, 2, 7))
+julia> bitstring(rangemask(UInt8, 2, 7))
 "01111110"
 
-julia> bit_string(rangemask(UInt16, (1, 3), (5, 8), (14, 16)))
+julia> bitstring(rangemask(UInt16, (1, 3), (5, 8), (14, 16)))
 "1110000011110111"
 
-julia> bit_string(rangemask(UInt8, (1, 5), (4, 8)))
+julia> bitstring(rangemask(UInt8, (1, 5), (4, 8)))
 "11111111"
 ```
 """
@@ -158,19 +168,19 @@ Overlaps between ranges will have their bits set to one.
 See `leftmask`, `rightmask`, `rangemask`.
 # Examples
 ```julia-repl
-julia> bit_string(mask(UInt8, 3))
+julia> bitstring(mask(UInt8, 3))
 "00000100"
 
-julia> bit_string(mask(UInt8, (1, 5, 8)))
+julia> bitstring(mask(UInt8, (1, 5, 8)))
 "10010001"
 
-julia> bit_string(mask(UInt8, (2, 5, 8)))
+julia> bitstring(mask(UInt8, (2, 5, 8)))
 "10010010"
 
-julia> bit_string(mask(1:2:64))
+julia> bitstring(mask(1:2:64))
 "0101010101010101010101010101010101010101010101010101010101010101"
 
-julia> bit_string(mask(UInt16, (1:3, 9, 14:16)))
+julia> bitstring(mask(UInt16, (1:3, 9, 14:16)))
 "1110000100000111"
 ```
 """
@@ -241,7 +251,12 @@ Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
 """
 tstbit0(x, i) = tstbit(ZeroBased(), x, i)
 
-# TODO: allow elide bounds checking
+
+## NB: In the following few functions there are two kinds of checking.
+## 1) is the index in bounds
+## 2) is the value at that index valid.
+
+# TODO: Using Val here may offer no advantage
 # Assume the string is one code unit per code point: '1' or '0'
 """
     bit(str::AbstractString, i::Integer)::Int
@@ -253,18 +268,27 @@ It is assumed that `str` has one byte per character, or more precisely,
 one `UInt8` code unit per code point. Thus, accessing the `i`th character
 via `bit` may be more efficient than `str[i]`.
 """
-function bit(str::AbstractString, i::Integer)
-    byte = codeunit(str, i)
-    is_zero_char(byte) && return 0
-    is_one_char(byte) && return 1
-    throw(ArgumentError("Invalid character code $byte for bit"))
+function bit(str::AbstractString, i::Integer; check::BoolOrVal=Val(true))
+    @boundscheck checkbounds(str, i)
+    byte = @inbounds codeunit(str, i)
+    return from_binary_char(Int, byte, _toVal(check))
 end
 
-function bit(v, i::Integer)
-    b = v[i] # propagate inbounds ?
-    b == one(b) && return 1
-    b == zero(b) && return 0
-    error("Unrecognized bit $b")
+# Not using Val here seems not to affect performance
+function bit(v, i::Integer; check=true)
+    @boundscheck checkbounds(v, i)
+    b = @inbounds v[i]
+    isone(b) && return 1
+    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    return 0
+end
+
+# TODO: Do bounds checking somehow for Tuple. No method for checkbounds.
+function bit(@nospecialize(v::Tuple), i::Integer; check=true)
+    b = v[i]
+    isone(b) && return 1
+    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    return 0
 end
 
 """
@@ -284,7 +308,7 @@ tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
 tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
 tstbit(::OneBased, args...) = tstbit(args...)
 
-# Maybe from Random module
+# Maybe from Random module via Bits.jl
 function tstbit(x::BigFloat, i::Integer)
     prec = precision(x)
     if i > prec
@@ -319,10 +343,9 @@ unchanged.
 """
 normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
 
-const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
-
-# Not supplying `IntT` is much slower (+ 100ns) than it should be. It is much slower than the time
-# required to lookup the correct `IntT`. Probably some kind of type instability
+# TODO:
+# Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
+# required to lookup the correct `IntT`.
 """
     bits([IntT], dts::Union{AbstractVector{<:Integer},  NTuple{<:Any, <:Integer}}, n=length(dts))
 
@@ -339,9 +362,16 @@ julia> bits((0,1,0,1))
 <0101>
 ```
 """
-bits(_digits::_VEC_LIKE, n=length(_digits)) = bits(min_uint_type(n)::DataType, _digits, n)
-bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT =
-    bits(undigits(IntT, _digits; base=2), n)
+function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
+    #    bits(undigits(min_uint_type(n), _digits; base=2), n)
+    T = min_uint_type(n)
+    return bits(T, _digits, n)
+end
+
+function bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
+#    return bits(undigits(IntT, _digits; base=2)::IntT, n)
+    return StaticBitVector{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
+end
 
 """
     undigits([IntT=Int], A; base=10)
@@ -418,10 +448,10 @@ julia> bit_string(128; pad = 9)
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
     isnothing(pad) && return bitstring(x)
-    return string(convert(uinttype(T), x); pad=pad, base=2)
+    return string(reinterpret(uinttype(T), x); pad=pad, base=2)
 end
 
-bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
+bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
 
 """
     min_bits(n::Integer)
@@ -551,17 +581,28 @@ julia> bits(bits(0x5555, 10))
 <00000001 01010101>
 ```
 """
-bits(x::Real, n) = StaticBitVector(x, n)
+bits(x::Real, n::Integer) = StaticBitVector(x, n)
 
-bits(::IndexBase, x::Real, n) = bits(x, n)
-bits(::ZeroBased, x::Real, n) = StaticBitVector0(x, n)
+bits(::IndexBase, x::Real, n::Integer) = bits(x, n)
+bits(::ZeroBased, x::Real, n::Integer) = StaticBitVector0(x, n)
 
 # ** StaticBitVector
 
 # similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
 abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
+#abstract type AbstractStaticBitVector{BitIntegers.UBI} <: AbstractVector{Bool} end
 
 @inline datatype(::Type{<:AbstractStaticBitVector{T}}) where T = T
+@inline Base.parent(bv::AbstractStaticBitVector) = getfield(bv, :x)
+
+Base.bitstring(bv::AbstractStaticBitVector) = bitstring(parent(bv))
+
+"""
+    bitstring(bv::AbstractStaticBitVector)
+
+Return `bv` as a `String` of only  `'0'` and `'1'`.
+"""
+Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
@@ -574,8 +615,6 @@ Base.zero(::V) where V <: AbstractStaticBitVector = convert(V, 0)
 # what is `one` worth here?
 Base.one(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 1)
 Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
-
-Base.count_ones(x::AbstractStaticBitVector) = Base.count_ones(x.x)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 
@@ -675,11 +714,11 @@ function _setindex!(
 end
 
 const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
-for T in (_int_types..., :BigInt)
+for T in (_int_types..., :BigInt, :count_ones, :count_zeros)
     @eval (Base.$T)(x::AbstractStaticBitVector) = ($T)(x.x)
 end
 
-Base.Integer(x::AbstractStaticBitVector) = x.x
+Base.Integer(x::AbstractStaticBitVector) = parent(x)
 
 for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
     @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), bitlength(x))
@@ -753,8 +792,6 @@ function Base.show(io::IO, v::AbstractStaticBitVector)
 end
 
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
-
-const BoolOrVal = Union{Bool, Val{true}, Val{false}}
 
 """
     bits([T], s::AbstractString)
