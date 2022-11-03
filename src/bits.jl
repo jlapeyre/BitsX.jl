@@ -241,7 +241,7 @@ Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
 """
 tstbit0(x, i) = tstbit(ZeroBased(), x, i)
 
-# TODO: allow elide bounds checking
+
 # Assume the string is one code unit per code point: '1' or '0'
 """
     bit(str::AbstractString, i::Integer)::Int
@@ -254,16 +254,16 @@ one `UInt8` code unit per code point. Thus, accessing the `i`th character
 via `bit` may be more efficient than `str[i]`.
 """
 function bit(str::AbstractString, i::Integer)
-    byte = codeunit(str, i)
-    is_zero_char(byte) && return 0
-    is_one_char(byte) && return 1
-    throw(ArgumentError("Invalid character code $byte for bit"))
+    @boundscheck checkbounds(str, i)
+    @inbounds byte = str[i]
+    return from_binary_char(Int, byte)
 end
 
 function bit(v, i::Integer)
-    b = v[i] # propagate inbounds ?
-    b == one(b) && return 1
-    b == zero(b) && return 0
+    @boundscheck checkboundss(v, i)
+    b = @inbounds v[i] # propagate inbounds ?
+    isone(b) && return 1
+    iszero(b) && return 0
     error("Unrecognized bit $b")
 end
 
