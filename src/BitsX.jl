@@ -35,6 +35,7 @@ export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_ch
 
 export parse_bin
 export BitStringVector, bitvecview
+export BinStringView, binstringview
 
 const Word = UInt
 
@@ -43,5 +44,6 @@ include("bitintegers_extra.jl")
 include("parse.jl")
 include("bits.jl")
 include("bitvecview.jl")
+include("binstringview.jl")
 
 end # module BitsX

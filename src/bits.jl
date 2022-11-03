@@ -24,6 +24,8 @@ function to_binary_char_code(x::T) where T
     throw(DomainError(x, "Must be 0 or 1."))
 end
 
+to_binary_char(x) = Char(to_binary_char_code(x))
+
 from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 
 """
@@ -310,15 +312,6 @@ there is no bounds check.
 unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
     tstbit(unsafe_load(p, 1 + (i-1) ÷ bitsizeof(T)),
            mod1(i, bitsizeof(T)))
-
-#_Bits.bits(x::T, n) where {T <: Real} = StaticBitVector(x & rightmask(T, n), n)
-# # TODO: Why do I do the following method? Why not return x instead of x.x?
-# _Bits.bits(x::StaticBitVector) = _Bits.bits(x.x)
-# _Bits.bits(x::StaticBitVectorView) = x
-# _Bits.bits(x::StaticBitVector, n) = _Bits.bits(x.x, n)
-# _Bits.bits(x::StaticBitVectorView, n) = bits(x.x, n)
-# min_bits(x::_Bits.AbstractBitVector1) =  min_bits(x.x)
-
 
 """
     normalize_bitstring(str::AbstractString)
@@ -732,7 +725,6 @@ end
 
 StaticBitVector{T}(x::Real, n::Integer) where {T<:Real} = StaticBitVector{T}(T(x), n)
 
-
 struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
     len::Int
@@ -740,7 +732,6 @@ struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
         return new(x & rightmask(T, n), n)
     end
 end
-
 
 StaticBitVector(x::T, n::Integer) where T = StaticBitVector{typeof(x)}(x, n)
 StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
@@ -970,7 +961,6 @@ end
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
-
 
 ###
 

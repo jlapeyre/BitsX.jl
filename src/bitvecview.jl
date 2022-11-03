@@ -68,5 +68,5 @@ end
 Base.String(bs::BitStringVector) = parent(bs)
 
 for func in (:reverse,)
-    @eval Base.$(func)(bs::BitStringVector, args...) = BitStringVector(Base.$(func)(parent(bs)))
+    @eval Base.$(func)(bs::BitStringVector, args...) = BitStringVector(Base.$(func)(parent(bs)), args...)
 end
