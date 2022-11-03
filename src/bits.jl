@@ -403,8 +403,6 @@ left padding.
 
 `pad=0` omits leading zeros in the output string
 
-See also, `bit_vector`, `bool_vector`, and `bool_tuple`.
-
 # Examples:
 
 ```julia-repl
