@@ -20,7 +20,7 @@ end
 Return the smallest unsigned integer type large enough to store `nbits` bits.
 The number of bits in the type returned is a multiple of 8.
 """
-@inline min_uint_type(n_bits::Integer) = uint_type(min_uint_bit_width(n_bits))
+@inline min_uint_type(n_bits::Int) = uint_type(min_uint_bit_width(n_bits))
 
 """
     min_uint_byte_width(n_bits::Integer)
@@ -28,7 +28,7 @@ The number of bits in the type returned is a multiple of 8.
 Return the minimum width in bytes of the unsigned integer needed to
 represent `nbits` bits. The widths are restricted to multiples of eight.
 """
-@inline function min_uint_byte_width(n_bits::Integer)
+@inline function min_uint_byte_width(n_bits::Int)
     n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
     n_bits == 0 && return 1
     (q, r) = divrem(n_bits, 8)
@@ -55,7 +55,7 @@ Return an `n_bits`-bit unsigned integers type `UIntn_bits`.
 
 If `UIntn` does not exist, construct `UIntn` and `Intn`.
 """
-@inline function uint_type(n_bits::Integer)
+@inline function uint_type(n_bits::Int)
     _type = get_uint_type_bits(n_bits)
     if !isnothing(_type)
         return _type

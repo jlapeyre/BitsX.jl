@@ -2,6 +2,9 @@
 ### bitsizeof
 ###
 
+const BoolOrVal = Union{Bool, Val{true}, Val{false}}
+const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
+
 const _ZERO_CHAR_CODE = UInt8('0')
 const _ONE_CHAR_CODE = UInt8('1')
 
@@ -34,10 +37,17 @@ from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to
 `zero(T)` and `one(T)`.
 """
-function from_binary_char(::Type{T}, x::UInt8) where T
+from_binary_char(::Type{T}, x::UInt8) where T = from_binary_char(T, x, Val(true))
+
+function from_binary_char(::Type{T}, x::UInt8, check::Val{true}) where T
     is_one_char(x) && return one(T)
     is_zero_char(x) && return zero(T)
     throw(DomainError(x, "Must be '0' or '1'."))
+end
+
+function from_binary_char(::Type{T}, x::UInt8, check::Val{false}) where T
+    is_one_char(x) && return one(T)
+    return zero(T)
 end
 
 from_binary_char(x) = from_binary_char(Bool, x)
@@ -242,6 +252,11 @@ Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
 tstbit0(x, i) = tstbit(ZeroBased(), x, i)
 
 
+## NB: In the following few functions there are two kinds of checking.
+## 1) is the index in bounds
+## 2) is the value at that index valid.
+
+# TODO: Using Val here may offer no advantage
 # Assume the string is one code unit per code point: '1' or '0'
 """
     bit(str::AbstractString, i::Integer)::Int
@@ -253,18 +268,27 @@ It is assumed that `str` has one byte per character, or more precisely,
 one `UInt8` code unit per code point. Thus, accessing the `i`th character
 via `bit` may be more efficient than `str[i]`.
 """
-function bit(str::AbstractString, i::Integer)
+function bit(str::AbstractString, i::Integer; check::BoolOrVal=Val(true))
     @boundscheck checkbounds(str, i)
-    @inbounds byte = str[i]
-    return from_binary_char(Int, byte)
+    byte = @inbounds codeunit(str, i)
+    return from_binary_char(Int, byte, _toVal(check))
 end
 
-function bit(v, i::Integer)
-    @boundscheck checkboundss(v, i)
-    b = @inbounds v[i] # propagate inbounds ?
+# Not using Val here seems not to affect performance
+function bit(v, i::Integer; check=true)
+    @boundscheck checkbounds(v, i)
+    b = @inbounds v[i]
     isone(b) && return 1
-    iszero(b) && return 0
-    error("Unrecognized bit $b")
+    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    return 0
+end
+
+# TODO: Do bounds checking somehow for Tuple. No method for checkbounds.
+function bit(@nospecialize(v::Tuple), i::Integer; check=true)
+    b = v[i]
+    isone(b) && return 1
+    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    return 0
 end
 
 """
@@ -284,7 +308,7 @@ tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
 tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
 tstbit(::OneBased, args...) = tstbit(args...)
 
-# Maybe from Random module
+# Maybe from Random module via Bits.jl
 function tstbit(x::BigFloat, i::Integer)
     prec = precision(x)
     if i > prec
@@ -319,10 +343,9 @@ unchanged.
 """
 normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
 
-const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
-
-# Not supplying `IntT` is much slower (+ 100ns) than it should be. It is much slower than the time
-# required to lookup the correct `IntT`. Probably some kind of type instability
+# TODO:
+# Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
+# required to lookup the correct `IntT`.
 """
     bits([IntT], dts::Union{AbstractVector{<:Integer},  NTuple{<:Any, <:Integer}}, n=length(dts))
 
@@ -339,9 +362,9 @@ julia> bits((0,1,0,1))
 <0101>
 ```
 """
-bits(_digits::_VEC_LIKE, n=length(_digits)) = bits(min_uint_type(n)::DataType, _digits, n)
-bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT =
-    bits(undigits(IntT, _digits; base=2), n)
+bits(_digits::_VEC_LIKE, n::Int=length(_digits)) = bits(min_uint_type(n), _digits, n)
+bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT = # {IntT<:BitIntegers.UBI} =
+    bits(undigits(IntT, _digits; base=2)::IntT, n)
 
 """
     undigits([IntT=Int], A; base=10)
@@ -560,6 +583,7 @@ bits(::ZeroBased, x::Real, n) = StaticBitVector0(x, n)
 
 # similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
 abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
+#abstract type AbstractStaticBitVector{BitIntegers.UBI} <: AbstractVector{Bool} end
 
 @inline datatype(::Type{<:AbstractStaticBitVector{T}}) where T = T
 
@@ -753,8 +777,6 @@ function Base.show(io::IO, v::AbstractStaticBitVector)
 end
 
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
-
-const BoolOrVal = Union{Bool, Val{true}, Val{false}}
 
 """
     bits([T], s::AbstractString)
