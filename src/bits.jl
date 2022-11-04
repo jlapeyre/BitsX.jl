@@ -363,11 +363,15 @@ julia> bits((0,1,0,1))
 ```
 """
 function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
-    return bits(min_uint_type(n), _digits, n)
+    #    bits(undigits(min_uint_type(n), _digits; base=2), n)
+    T = min_uint_type(n)
+    return bits(T, _digits, n)
 end
 
-bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT = # {IntT<:BitIntegers.UBI} =
-    bits(undigits(IntT, _digits; base=2)::IntT, n)
+function bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
+#    return bits(undigits(IntT, _digits; base=2)::IntT, n)
+    return StaticBitVector{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
+end
 
 """
     undigits([IntT=Int], A; base=10)
@@ -444,7 +448,7 @@ julia> bit_string(128; pad = 9)
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
     isnothing(pad) && return bitstring(x)
-    return string(convert(uinttype(T), x); pad=pad, base=2)
+    return string(reinterpret(uinttype(T), x); pad=pad, base=2)
 end
 
 bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
@@ -577,10 +581,10 @@ julia> bits(bits(0x5555, 10))
 <00000001 01010101>
 ```
 """
-bits(x::Real, n) = StaticBitVector(x, n)
+bits(x::Real, n::Integer) = StaticBitVector(x, n)
 
-bits(::IndexBase, x::Real, n) = bits(x, n)
-bits(::ZeroBased, x::Real, n) = StaticBitVector0(x, n)
+bits(::IndexBase, x::Real, n::Integer) = bits(x, n)
+bits(::ZeroBased, x::Real, n::Integer) = StaticBitVector0(x, n)
 
 # ** StaticBitVector
 
@@ -589,6 +593,16 @@ abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
 #abstract type AbstractStaticBitVector{BitIntegers.UBI} <: AbstractVector{Bool} end
 
 @inline datatype(::Type{<:AbstractStaticBitVector{T}}) where T = T
+@inline Base.parent(bv::AbstractStaticBitVector) = getfield(bv, :x)
+
+Base.bitstring(bv::AbstractStaticBitVector) = bitstring(parent(bv))
+
+"""
+    bitstring(bv::AbstractStaticBitVector)
+
+Return `bv` as a `String` of only  `'0'` and `'1'`.
+"""
+Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
@@ -601,8 +615,6 @@ Base.zero(::V) where V <: AbstractStaticBitVector = convert(V, 0)
 # what is `one` worth here?
 Base.one(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 1)
 Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
-
-Base.count_ones(x::AbstractStaticBitVector) = Base.count_ones(x.x)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 
@@ -702,11 +714,11 @@ function _setindex!(
 end
 
 const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
-for T in (_int_types..., :BigInt)
+for T in (_int_types..., :BigInt, :count_ones, :count_zeros)
     @eval (Base.$T)(x::AbstractStaticBitVector) = ($T)(x.x)
 end
 
-Base.Integer(x::AbstractStaticBitVector) = x.x
+Base.Integer(x::AbstractStaticBitVector) = parent(x)
 
 for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes to do +,-
     @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), bitlength(x))
