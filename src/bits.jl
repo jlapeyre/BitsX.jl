@@ -96,7 +96,7 @@ are one, and all bits to the left of the `i`th bit (higher) are zero.
 See `leftmask`, `rangemask`, `mask`.
 # Examples
 ```julia-repl
-julia> bit_string(rightmask(UInt8, 3))
+julia> bitstring(rightmask(UInt8, 3))
 "00000111"
 ```
 """
@@ -119,7 +119,7 @@ are one, and all bits to the right of the `i`th bit (lower) are zero.
 See `rightmask`, `rangemask`, `mask`.
 # Examples
 ```julia-repl
-julia> bit_string(leftmask(UInt8, 3))
+julia> bitstring(leftmask(UInt8, 3))
 "11111100"
 ```
 """
@@ -141,13 +141,13 @@ See `leftmask`, `rightmask`, `mask`.
 
 # Examples
 ```julia-repl
-julia> bit_string(rangemask(UInt8, 2, 7))
+julia> bitstring(rangemask(UInt8, 2, 7))
 "01111110"
 
-julia> bit_string(rangemask(UInt16, (1, 3), (5, 8), (14, 16)))
+julia> bitstring(rangemask(UInt16, (1, 3), (5, 8), (14, 16)))
 "1110000011110111"
 
-julia> bit_string(rangemask(UInt8, (1, 5), (4, 8)))
+julia> bitstring(rangemask(UInt8, (1, 5), (4, 8)))
 "11111111"
 ```
 """
@@ -168,19 +168,19 @@ Overlaps between ranges will have their bits set to one.
 See `leftmask`, `rightmask`, `rangemask`.
 # Examples
 ```julia-repl
-julia> bit_string(mask(UInt8, 3))
+julia> bitstring(mask(UInt8, 3))
 "00000100"
 
-julia> bit_string(mask(UInt8, (1, 5, 8)))
+julia> bitstring(mask(UInt8, (1, 5, 8)))
 "10010001"
 
-julia> bit_string(mask(UInt8, (2, 5, 8)))
+julia> bitstring(mask(UInt8, (2, 5, 8)))
 "10010010"
 
-julia> bit_string(mask(1:2:64))
+julia> bitstring(mask(1:2:64))
 "0101010101010101010101010101010101010101010101010101010101010101"
 
-julia> bit_string(mask(UInt16, (1:3, 9, 14:16)))
+julia> bitstring(mask(UInt16, (1:3, 9, 14:16)))
 "1110000100000111"
 ```
 """
@@ -451,7 +451,7 @@ function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Intege
     return string(reinterpret(uinttype(T), x); pad=pad, base=2)
 end
 
-bit_string(x::AbstractFloat, args...) = bit_string(asint(x), args...)
+bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
 
 """
     min_bits(n::Integer)
