@@ -14,12 +14,16 @@ is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
+
+# TODO: This is probably 10x slower because of the possibility
+# of throwing an error. But, safer to start.
 # Convert `x` to the character `'0'` or `'1'`.
 """
     to_binary_char_code(x::T)
 
 Convert `x` to the character `'0'` or `'1'`.
 `x` must be equal to eithe `zero(T)` or `one(T)`.
+`T` can be any type that implements `zero` and `one`.
 """
 function to_binary_char_code(x::T) where T
     iszero(x) && return _ZERO_CHAR_CODE
@@ -600,6 +604,8 @@ abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
 
 Base.bitstring(bv::AbstractStaticBitVector) = bitstring(parent(bv))
 
+Base.:(>>)(x::T, i) where T<:AbstractStaticBitVector = T(x.x >> i)
+
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
@@ -620,6 +626,10 @@ abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
 Return `bv` as a `String` of only  `'0'` and `'1'`.
 """
 Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
+
+
+Base.:(>>)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x >> i, length(x))
+Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
 
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
@@ -869,3 +879,39 @@ _bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST} =
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
+
+###
+### selectbits
+###
+
+"""
+    selectbits(::Type{OT}=T, x::T, bitinds)
+
+Return the subset of the bits in `x` specified by `bitinds`.
+The return type is `OT` which defaults to the input type.
+
+For example, for bitstring `x::String` this is equivalent to `x[bitinds]`, but is
+more efficient.
+"""
+@inline selectbits(x::T, bitinds) where T = selectbits(T, x, bitinds)
+
+@inline function selectbits(::Type{Vector{UInt8}}, s::String, bitinds)
+    sv = Base.StringVector(length(bitinds))
+    for i in eachindex(bitinds)
+        bi = @inbounds bitinds[i]
+        c = codeunits(s)[bi]
+        @inbounds sv[i] = c
+    end
+    return sv
+end
+
+selectbits(::Type{String}, s::String, bitinds) = String(selectbits(Vector{UInt8}, s, bitinds))
+
+function selectbits(::Type{T}, x::T, bitinds) where {T<:Integer}
+    xout = zero(T)
+    for i in eachindex(bitinds)
+        @inbounds bi = bitinds[i]
+        xout += (x >> bi) & (1 << (i - 1))
+    end
+    return xout
+end
