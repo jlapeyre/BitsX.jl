@@ -334,6 +334,8 @@ unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
     tstbit(unsafe_load(p, 1 + (i-1) ÷ bitsizeof(T)),
            mod1(i, bitsizeof(T)))
 
+
+# TODO: This could probably be made faster by iterating over code units. Did we already try this?
 """
     normalize_bitstring(str::AbstractString)
 
@@ -343,34 +345,21 @@ unchanged.
 """
 normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
 
-# TODO:
-# Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
-# required to lookup the correct `IntT`.
-"""
-    bits([IntT], dts::Union{AbstractVector{<:Integer},  NTuple{<:Any, <:Integer}}, n=length(dts))
+###
+### More bit functions
+###
 
-Convert the container of binary digits `dts` to a `BitsVector1Mask`.
-
-`IntT` is the storage type, i.e., the type that is wrapped. Input is not validated for
-correctness, nor for having length greater than the number of bits in `IntT`. If
-`IntT` is omitted, the smallest type capable of representing `dts` is used.
-However, supplying `IntT` may result in faster conversion.
-
-# Examples
-```julia-repl
-julia> bits((0,1,0,1))
-<0101>
-```
-"""
-function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
-    #    bits(undigits(min_uint_type(n), _digits; base=2), n)
-    T = min_uint_type(n)
-    return bits(T, _digits, n)
-end
-
-function bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
-#    return bits(undigits(IntT, _digits; base=2)::IntT, n)
-    return StaticBitVector{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
+## Add more methods for Base.uinttype.
+## Methods are defined in base for floating point types,
+## and in the package BitIntegers.jl
+let
+    tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
+    for (t, ts) in ((:Int8, (:UInt8, :Int8, :Bool)), tups..., (:Int128, (:UInt128, :Int128)))
+        for tp in ts
+            @eval inttype(::Type{$tp}) = $t
+            @eval uinttype(::Type{$tp}) = $(Symbol("U", t))
+        end
+    end
 end
 
 """
@@ -407,22 +396,36 @@ function _undigits_base_2(::Type{IntT}, A) where IntT <: Unsigned
     return n
 end
 
-###
-### More bit functions
-###
+# TODO:
+# Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
+# required to lookup the correct `IntT`.
+"""
+    bits([IntT], dts::Union{AbstractVector{<:Integer},  NTuple{<:Any, <:Integer}}, n=length(dts))
 
-## Add more methods for Base.uinttype.
-## Methods are defined in base for floating point types,
-## and in the package BitIntegers.jl
-let
-    tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
-    for (t, ts) in ((:Int8, (:UInt8, :Int8, :Bool)), tups..., (:Int128, (:UInt128, :Int128)))
-        for tp in ts
-            @eval inttype(::Type{$tp}) = $t
-            @eval uinttype(::Type{$tp}) = $(Symbol("U", t))
-        end
-    end
+Convert the container of binary digits `dts` to a `BitsVector1Mask`.
+
+`IntT` is the storage type, i.e., the type that is wrapped. Input is not validated for
+correctness, nor for having length greater than the number of bits in `IntT`. If
+`IntT` is omitted, the smallest type capable of representing `dts` is used.
+However, supplying `IntT` may result in faster conversion.
+
+# Examples
+```julia-repl
+julia> bits((0,1,0,1))
+<0101>
+```
+"""
+function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
+    #    bits(undigits(min_uint_type(n), _digits; base=2), n)
+    T = min_uint_type(n)
+    return bits(T, _digits, n)
 end
+
+function bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
+#    return bits(undigits(IntT, _digits; base=2)::IntT, n)
+    return StaticBitVector{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
+end
+
 
 """
     bit_string(n::Integer; pad=nothing)
@@ -597,13 +600,6 @@ abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
 
 Base.bitstring(bv::AbstractStaticBitVector) = bitstring(parent(bv))
 
-"""
-    bitstring(bv::AbstractStaticBitVector)
-
-Return `bv` as a `String` of only  `'0'` and `'1'`.
-"""
-Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
-
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
@@ -617,6 +613,13 @@ Base.one(::Type{V}) where V <: AbstractStaticBitVector = convert(V, 1)
 Base.one(::V) where V <: AbstractStaticBitVector = convert(V, 1)
 
 abstract type AbstractStaticBitVectorLen{T} <: AbstractStaticBitVector{T} end
+
+"""
+    bitstring(bv::AbstractStaticBitVector)
+
+Return `bv` as a `String` of only  `'0'` and `'1'`.
+"""
+Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
@@ -827,6 +830,10 @@ function bits(::Type{T}, s::AbstractString; strip::BoolOrVal=Val(false)) where {
     return _bits(s, _toVal(strip), T, StaticBitVector)
 end
 
+# Don't convert string to bitstype, return a string, possibly stripped
+bits(::Type{T}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T<:AbstractString} =
+    _bits(s, _toVal(strip), T)
+
 # The method is never dispatched to. The one below is preferred. So we have to work around
 # function bits(::Type{ST}, s::AbstractString; strip::Bool=false) where {ST <: AbstractStaticBitVector{T}} where T
 
@@ -852,10 +859,12 @@ _bits(s::AbstractString, ::Val{true}, ::Type{T}, ::Type{ST}) where {T, ST} =
 _bits(s::AbstractString, ::Val{false}, ::Type{Nothing}, ::Type{ST}) where {ST} =
     _bits(s, Val(false), min_uint_type(ncodeunits(s)), ST)
 
-function _bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST}
-    x = parse_bin(T, s) # This is somewhat faster
-    return __bits(x, ncodeunits(s), T, ST)
-end
+# Don't convert to bits type. If T==String, return string, unchanged or normalized.
+_bits(s::AbstractString, ::Val{false}, ::Type{T}) where {T<:AbstractString} = T(s)
+_bits(s::AbstractString, ::Val{true}, ::Type{T}) where {T<:AbstractString} = T(normalize_bitstring(s))
+
+_bits(s::AbstractString, ::Val{false}, ::Type{T}, ::Type{ST}) where {T, ST} =
+    __bits(parse_bin(T, s), ncodeunits(s), T, ST)
 
 __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(x)
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
