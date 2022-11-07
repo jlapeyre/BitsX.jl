@@ -16,8 +16,8 @@ Tools for bits and masks. OUTOFDATEDOCS
 """
 module BitsX
 
-export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN
-export StaticBitVector, AbstractStaticBitVector
+export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN, StaticBitVectorView
+export AbstractStaticBitVector
 export bitsizeof, bitlength
 export undigits, undigits2
 export uint_type, min_uint_type, min_uint_bit_width, min_uint_byte_width
@@ -36,6 +36,8 @@ export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_ch
 export parse_bin
 export BitStringVector, bitvecview
 export BitStringView, bitstringview
+
+export selectbits
 
 const Word = UInt
 

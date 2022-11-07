@@ -49,10 +49,12 @@ bitvecview(::Type{V}, str::AbstractString; check=_DEFAULT_CHECK) where V =
     @inbounds is_one_char(codeunit(parent(bs), i)) % V
 end
 
-@inline function Base.getindex(bs::BitStringVector, v::AbstractVector)
-    @boundscheck checkbounds(bs, v)
-    return @inbounds bitvecview(parent(bs)[v])
-end
+# Let the fallbacks return a Vector{V}. This is very fast.
+# Base seems to usually return a "collect"ed type in this situation
+# @inline function Base.getindex(bs::BitStringVector{V}, v::AbstractVector) where V
+#     @boundscheck checkbounds(bs, v)
+#     return @inbounds bitvecview(parent(bs)[v];check=false)
+# end
 
 @inline Base.sizeof(s::BitStringVector{V}) where V = length(s) * sizeof(V) # should this always be UInt8 ?
 @inline Base.elsize(::Type{<:BitStringVector{V}}) where V = sizeof(V)
