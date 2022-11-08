@@ -453,7 +453,7 @@ end
 """
     bits([IntT], dts::Union{AbstractVector{<:Integer},  NTuple{<:Any, <:Integer}}, n=length(dts))
 
-Convert the container of binary digits `dts` to a `BitsVector1Mask`.
+Convert the container of binary digits `dts` to a `StaticBitVector`.
 
 `IntT` is the storage type, i.e., the type that is wrapped. Input is not validated for
 correctness, nor for having length greater than the number of bits in `IntT`. If
