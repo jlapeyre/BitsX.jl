@@ -14,7 +14,6 @@ is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
-
 # TODO: This is probably 10x slower because of the possibility
 # of throwing an error. But, safer to start.
 # Convert `x` to the character `'0'` or `'1'`.
@@ -673,18 +672,20 @@ end
 
 Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
 
-function Base.getindex(v::AbstractStaticBitVector, a::AbstractVector{<:Integer})
-    xx, _ = foldl(a, init=(zero(asint(v.x)), 0)) do xs, i
-        x, s = xs
-        (x | getindex(v, i) << s, s+1) # better
-    end
-    v isa AbstractStaticBitVectorLen && return typeof(v)(xx, length(a))
-    return StaticBitVector(xx, length(a))
+function Base.getindex(v::AbstractStaticBitVector, a)
+    return _getindex(Base.IteratorSize(a), v, a)
+end
+
+@inline function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVector, a)
+    return StaticBitVector(selectbits(v.x, a), length(a))
+end
+
+function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVectorLen, a::AbstractVector{<:Integer})
+    return typeof(v)(selectbits(v.x, a), length(a))
 end
 
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer})
-    i0, i1 = extrema(a)
-    x = masked(asint(v.x), i0:i1) >> (i0-1)
+    x = selectbits(v.x, a)
     v isa AbstractStaticBitVectorLen && return typeof(v)(x, length(a))
     return StaticBitVector(x, length(a))
 end
@@ -718,11 +719,11 @@ Base.convert(::Type{StaticBitVectorN{T,N}}, x) where {T, N} = StaticBitVectorN{T
 Base.convert(::Type{StaticBitVectorN{T,N}}, x::StaticBitVectorN{T,N}) where {T, N} = x
 
 # Try to improve perf by making N inferrable
-Base.setindex!(v::Array{<:StaticBitVectorN}, val::Union{Number,AbstractString}, inds::Int...) =
+Base.setindex!(v::Array{<:StaticBitVectorN}, val::Union{Number, AbstractString}, inds::Int...) =
      _setindex!(v, val, inds...)
 
 function _setindex!(
-    v::Array{StaticBitVectorN{T,N}}, val::Union{Number,AbstractString}, inds...) where {T, N}
+    v::Array{StaticBitVectorN{T,N}}, val::Union{Number, AbstractString}, inds...) where {T, N}
     return setindex!(v, StaticBitVectorN{T,N}(val), inds...)
 end
 
@@ -914,7 +915,7 @@ end
 
 selectbits(::Type{String}, s::String, bitinds) = String(selectbits(Vector{UInt8}, s, bitinds))
 
-function selectbits(::Type{T}, x::T, bitinds) where {T<:Integer}
+@inline function selectbits(::Type{T}, x::T, bitinds) where {T<:Real}
     xout = zero(T)
     for i in eachindex(bitinds)
         @inbounds bi = bitinds[i]
@@ -923,10 +924,9 @@ function selectbits(::Type{T}, x::T, bitinds) where {T<:Integer}
     return xout
 end
 
-function selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVectorLen}
-    return T(selectbits(x.x, bitinds), length(bitinds))
+function selectbits(::Type{T}, x::T, bitinds::AbstractUnitRange{<:Integer}) where {T<:Real}
+    i0, i1 = extrema(bitinds)
+    return reinterpret(T, masked(asint(x), i0:i1) >> (i0-1))
 end
 
-function selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector}
-    return T(selectbits(x.x, bitinds))
-end
+selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
