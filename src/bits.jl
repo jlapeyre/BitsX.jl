@@ -1,7 +1,3 @@
-###
-### bitsizeof
-###
-
 const BoolOrVal = Union{Bool, Val{true}, Val{false}}
 const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
@@ -79,6 +75,10 @@ end
 
 from_binary_char(x) = from_binary_char(Bool, x)
 
+###
+### bitsizeof
+###
+
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
 """
@@ -96,13 +96,14 @@ _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
 _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
 bitsizeof(::Type{Bool}) = 1
 
+
 const MPFR_EXP_BITSIZE = bitsizeof(Clong) # bytes_to_bits(sizeof(Clong))
 
 """
-bitlength(x::T)
+    bitlength(x::T)
 
 Return the number of bits in the instance `x` of type `T`.
-This is the number of bits that can be indexed via `bits`. If `x` is an `isbitstype`
+This is the number of bits that can be indexed via `bit`. If `x` is an `isbitstype`
 type, then this is the same as `bitsizeof(T)`.
 
 In contrast, if `x` is of type `BigInt` or `BigFloat` the number
@@ -113,6 +114,16 @@ bitlength(x::T) where T = bitsizeof(T)
 bitlength(x::BigFloat) =  1 + MPFR_EXP_BITSIZE + precision(x)
 bitlength(x::BigInt) = abs(x.size) * Base.GMP.BITS_PER_LIMB # bitsizeof(Base.GMP.Limb)
 bitlength(x::AbstractVector{Bool}) = length(x)
+bitlength(x::BitArray) = length(x)
+
+"""
+    bitlength(str::AbstractString)
+
+The number of characters in `str`, which is assumed to contain
+only `'0'` and `'1'`. If `str` contains other characters, the returned
+value will be incorrect.
+"""
+bitlength(s::AbstractString) = ncodeunits(s)
 
 """
     rightmask([T=UInt], i)
@@ -969,4 +980,3 @@ end
 # TODO: could use @checkbounds, etc. to allow @inbounds
 selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
 selectbits(x::AbstractVector{Bool}, bitinds) = x[bitinds]
-
