@@ -895,14 +895,21 @@ more efficient.
 """
 @inline selectbits(x::T, bitinds) where T = selectbits(T, x, bitinds)
 
+# NB. StringVector is not exported. I am supposed to use IOBuffer instead
+# This may break.
 @inline function selectbits(::Type{Vector{UInt8}}, s::String, bitinds)
-    sv = Base.StringVector(length(bitinds))
+    sv = Base.StringVector(length(bitinds)) # StringVector always seems faster
+#    sv = Vector{UInt8}(undef, length(bitinds))
+    return _selectbits!(sv, s, bitinds)
+end
+
+@inline function _selectbits!(dest, s::String, bitinds)
     for i in eachindex(bitinds)
         bi = @inbounds bitinds[i]
         c = codeunits(s)[bi]
-        @inbounds sv[i] = c
+        @inbounds dest[i] = c
     end
-    return sv
+    return dest
 end
 
 selectbits(::Type{String}, s::String, bitinds) = String(selectbits(Vector{UInt8}, s, bitinds))
@@ -911,7 +918,15 @@ function selectbits(::Type{T}, x::T, bitinds) where {T<:Integer}
     xout = zero(T)
     for i in eachindex(bitinds)
         @inbounds bi = bitinds[i]
-        xout += (x >> bi) & (1 << (i - 1))
+        xout += (x >> (bi - i)) & (1 << (i - 1))
     end
     return xout
+end
+
+function selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVectorLen}
+    return T(selectbits(x.x, bitinds), length(bitinds))
+end
+
+function selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector}
+    return T(selectbits(x.x, bitinds))
 end
