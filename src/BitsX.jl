@@ -31,7 +31,7 @@ export is_bitstring, bit_string, normalize_bitstring, count_bits, bit_string!
 
 # obsolete: bit_vector, bit_vector2, bool_tuple, bool_vector
 
-export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code
+export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code, to_binary_char
 
 export parse_bin
 export BitStringVector, bitvecview

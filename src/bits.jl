@@ -8,20 +8,37 @@ const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Bas
 const _ZERO_CHAR_CODE = UInt8('0')
 const _ONE_CHAR_CODE = UInt8('1')
 
+"""
+    is_one_char(x)
+
+Return `true` if `x` is equal to `'1'` or its ASCII code.
+"""
 is_one_char(x) = x == _ONE_CHAR_CODE
+
+"""
+    is_zero_char(x)
+
+Return `true` if `x` is equal to `'0'` or its ASCII code.
+"""
 is_zero_char(x) = x == _ZERO_CHAR_CODE
 is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
+
+"""
+    is_binary_char(x)
+
+Return `true` if `x` is equal to either `'0'` or `'1'` or their ASCII codes.
+"""
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
 # TODO: This is probably 10x slower because of the possibility
 # of throwing an error. But, safer to start.
 # Convert `x` to the character `'0'` or `'1'`.
 """
-    to_binary_char_code(x::T)
+    to_binary_char_code(x::T)::UInt8
 
-Convert `x` to the character `'0'` or `'1'`.
-`x` must be equal to eithe `zero(T)` or `one(T)`.
+Convert `x` to the ASCII code for character `'0'` or `'1'`.
+`x` must be equal to either `zero(T)` or `one(T)`.
 `T` can be any type that implements `zero` and `one`.
 """
 function to_binary_char_code(x::T) where T
@@ -30,6 +47,13 @@ function to_binary_char_code(x::T) where T
     throw(DomainError(x, "Must be 0 or 1."))
 end
 
+"""
+    to_binary_char(x::T)::Char
+
+Convert `x` to the character `'0'` or `'1'`.
+`x` must be equal to either `zero(T)` or `one(T)`.
+`T` can be any type that implements `zero` and `one`.
+"""
 to_binary_char(x) = Char(to_binary_char_code(x))
 
 from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
@@ -338,18 +362,18 @@ unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
            mod1(i, bitsizeof(T)))
 
 
-
+# This is fast
 """
     normalize_bitstring(str::AbstractString)
 
-Remove all characters (code points) from `str` that are not one
+Remove all characters (more precisely, code points) from `str` that are not one
 of `'0'` and `'1'`, if such characters exist. Otherwise, return `str`
-unchanged.
+unchanged. Non-ASCII characters in `str` may cause incorrect results.
 """
 function normalize_bitstring(str::AbstractString)
     nbits = count_bits(str)
     nbits == ncodeunits(str) && return str
-    v = Base.StringVector(nbits)
+    v = Base.StringVector(nbits) # Not exported, but fast
     j = 1
     for i in eachindex(codeunits(str))
         c = @inbounds codeunit(str, i)
@@ -944,5 +968,5 @@ end
 
 # TODO: could use @checkbounds, etc. to allow @inbounds
 selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
-
 selectbits(x::AbstractVector{Bool}, bitinds) = x[bitinds]
+

@@ -104,9 +104,10 @@ end
     count_bits(s::AbstractString)
     count_bits(v::AbstractVector{UInt8})
 
-Return the number of characters (or bytes) that are `'1'` or `'0'`.
+Return the number of characters (or bytes) that are `'1'` or `'0'`,
+(`0x30` or `0x31`).
 
-It is assume that `s` is an ASCII string. `count_bits` may be useul if
+It is assumed that `s` is an ASCII string. `count_bits` may be useul if
 the string includes formatting characters, for example spaces.
 """
 count_bits(s::AbstractString) = count_bits(codeunits(s))
