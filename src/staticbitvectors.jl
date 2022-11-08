@@ -1,3 +1,5 @@
+# TODO: make this into submodule
+
 # TODO:
 # Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
 # required to lookup the correct `IntT`.
@@ -87,6 +89,10 @@ bits(::ZeroBased, x::Real, n::Integer) = StaticBitVector0(x, n)
 
 # ** StaticBitVector
 
+# _count is called by count, sum, etc.
+# TODO: Do similar counting for StaticBitVectorLen
+Base._count(::typeof(identity), B::StaticBitVectorView, ::Colon, init) = init + count_ones(B.x)
+
 # similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
 abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
 #abstract type AbstractStaticBitVector{BitIntegers.UBI} <: AbstractVector{Bool} end
@@ -122,6 +128,14 @@ Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 
 Base.:(>>)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x >> i, length(x))
 Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
+
+@inline function Base.iterate(bv::AbstractStaticBitVectorLen, i=1)
+    if (i % UInt) - 1 < length(bv)
+        (@inbounds bv[i], i + 1)
+    else
+        nothing
+    end
+end
 
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
@@ -260,7 +274,7 @@ Return `b` with the bit order reversed.
 """
 function Base.reverse(b::AbstractStaticBitVectorLen{T}) where T
     c = zero(T)
-    for i in eachindex(b)
+    for i in eachindex(b) # @inbounds means nothing here (yet)
         c |= b[i] << (lastindex(b) - i)
     end
     return bits(c, length(b))
@@ -325,6 +339,17 @@ julia> bits("<01000000 11111111>")
 function bits(::Type{T}, ::Type{ST}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T <: Real, ST <: AbstractStaticBitVector}
     return _bits(s, _toVal(strip), T, ST)
 end
+
+"""
+    bits(::Type{BitVector}, s::AbstractString; strip::BoolOrVal=Val(false))
+
+Convert bitstring `s` to `BitVector`. Optionally strip characters other than `'0'` and `'1'` from `s`.
+"""
+bits(::Type{BitVector}, s::AbstractString; strip::BoolOrVal=Val(false)) = _bits(s, _toVal(strip), BitVector)
+_bits(s::AbstractString, ::Val{false}, ::Type{BitVector}) = BitVector(bitvecview(s))
+# TODO: could save allocation by iterating over good Char's rather than allocating with normalize_bitstring
+# There are a few other uses of this. A function name might be normalize_bitstring_iter.
+_bits(s::AbstractString, ::Val{true}, ::Type{BitVector}) = BitVector(bitvecview(normalize_bitstring(s)))
 
 # Not sure why we have to do this. Forces specialization
 _toVal(x::Bool) = x ? Val(true) : Val(false)
