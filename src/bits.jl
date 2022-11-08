@@ -338,7 +338,7 @@ unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
            mod1(i, bitsizeof(T)))
 
 
-# TODO: This could probably be made faster by iterating over code units. Did we already try this?
+
 """
     normalize_bitstring(str::AbstractString)
 
@@ -346,7 +346,20 @@ Remove all characters (code points) from `str` that are not one
 of `'0'` and `'1'`, if such characters exist. Otherwise, return `str`
 unchanged.
 """
-normalize_bitstring(str::AbstractString) = is_bitstring(str) ? str : replace(str, r"[^01]" => "")
+function normalize_bitstring(str::AbstractString)
+    nbits = count_bits(str)
+    nbits == ncodeunits(str) && return str
+    v = Base.StringVector(nbits)
+    j = 1
+    for i in eachindex(codeunits(str))
+        c = @inbounds codeunit(str, i)
+        if is_binary_char(c)
+            @inbounds v[j] = c
+            j += 1
+        end
+    end
+    return String(v)
+end
 
 ###
 ### More bit functions
@@ -896,7 +909,7 @@ more efficient.
 """
 @inline selectbits(x::T, bitinds) where T = selectbits(T, x, bitinds)
 
-# NB. StringVector is not exported. I am supposed to use IOBuffer instead
+# NB. StringVector is not exported. I am supposed to use IOBuffer instead.
 # This may break.
 @inline function selectbits(::Type{Vector{UInt8}}, s::String, bitinds)
     sv = Base.StringVector(length(bitinds)) # StringVector always seems faster
@@ -929,4 +942,7 @@ function selectbits(::Type{T}, x::T, bitinds::AbstractUnitRange{<:Integer}) wher
     return reinterpret(T, masked(asint(x), i0:i1) >> (i0-1))
 end
 
+# TODO: could use @checkbounds, etc. to allow @inbounds
 selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
+
+selectbits(x::AbstractVector{Bool}, bitinds) = x[bitinds]
