@@ -89,9 +89,6 @@ bits(::ZeroBased, x::Real, n::Integer) = StaticBitVector0(x, n)
 
 # ** StaticBitVector
 
-# _count is called by count, sum, etc.
-# TODO: Do similar counting for StaticBitVectorLen
-Base._count(::typeof(identity), B::StaticBitVectorView, ::Colon, init) = init + count_ones(B.x)
 
 # similar to a BitVector, but with only 1 word to store bits (instead of 1 array thereof)
 abstract type AbstractStaticBitVector{T<:Real} <: AbstractVector{Bool} end
@@ -107,6 +104,10 @@ Base.:(>>)(x::T, i) where T<:AbstractStaticBitVector = T(x.x >> i)
 struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
+
+# _count is called by count, sum, etc.
+# TODO: Do similar counting for StaticBitVectorLen
+Base._count(::typeof(identity), B::StaticBitVectorView, ::Colon, init) = init + count_ones(B.x)
 
 Base.convert(::Type{StaticBitVectorView{T}}, x) where T = StaticBitVectorView(T(x))
 
@@ -137,6 +138,11 @@ Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
     end
 end
 
+function Base.iterate(bv::AbstractStaticBitVector, i::Int=0)
+    i >= length(bv) && return nothing
+    (((>>>(bv.x, UInt(i))) & UInt64(1)) != 0, i + 1)
+end
+
 struct StaticBitVector{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
     len::Int
@@ -158,8 +164,8 @@ end
 StaticBitVector(x::T, n::Integer) where T = StaticBitVector{typeof(x)}(x, n)
 StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
 
-index_base(::Any) = OneBased()
-index_base(::Type{<:StaticBitVector0}) = ZeroBased()
+@inline index_base(::Any) = OneBased()
+@inline index_base(::Type{<:StaticBitVector0}) = ZeroBased()
 
 bitlength(x::AbstractStaticBitVector{T}) where T = bitsizeof(T)
 bitlength(x::AbstractStaticBitVectorLen) = x.len
@@ -173,26 +179,26 @@ Base.size(v::AbstractStaticBitVector) = (bitlength(v),)
 
 # Assume 1 "based"
 # TODO!: do bounds checking
-function Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer)
+@inline function Base.getindex(ib::IndexBase, v::AbstractStaticBitVector, i::Integer)
     return tstbit(ib, v.x, i)
 end
 
-Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
+@inline Base.getindex(v::AbstractStaticBitVector, i::Integer) = getindex(index_base(typeof(v)), v, i)
 
 function Base.getindex(v::AbstractStaticBitVector, a)
     return _getindex(Base.IteratorSize(a), v, a)
 end
 
 @inline function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVector, a)
-    return StaticBitVector(selectbits(v.x, a), length(a))
+    return StaticBitVector(bitgetindex(v.x, a), length(a))
 end
 
 function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVectorLen, a::AbstractVector{<:Integer})
-    return typeof(v)(selectbits(v.x, a), length(a))
+    return typeof(v)(bitgetindex(v.x, a), length(a))
 end
 
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer})
-    x = selectbits(v.x, a)
+    x = bitgetindex(v.x, a)
     v isa AbstractStaticBitVectorLen && return typeof(v)(x, length(a))
     return StaticBitVector(x, length(a))
 end
@@ -399,7 +405,8 @@ __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
 
-
 # TODO: could use @checkbounds, etc. to allow @inbounds
-selectbits(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
-selectbits(x::AbstractVector{Bool}, bitinds) = x[bitinds]
+
+# We use more general methods now
+# bitgetindex(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
+# bitgetindex(x::AbstractVector{Bool}, bitinds) = x[bitinds]

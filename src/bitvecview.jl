@@ -69,6 +69,7 @@ end
 
 Base.String(bs::BitStringVector) = parent(bs)
 
+# TODO: do reverse in the wrapper, not the parent object
 for func in (:reverse,)
     @eval Base.$(func)(bs::BitStringVector, args...) = BitStringVector(Base.$(func)(parent(bs)), args...)
 end

@@ -12,33 +12,35 @@ Each element of `v` must satifiy either `isone` or `iszero`.
 """
 bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
 Base.parent(sv::BitStringView) = sv.data
-Base.ncodeunits(sv::BitStringView) = length(parent(sv))
+Base.ncodeunits(sv::BitStringView) = bitlength(parent(sv))
+
+_getindex(sv, i) = bitgetindex(parent(sv), i)
 
 # Called by sizeof, for example
 Base.codeunit(sv::BitStringView) = UInt8
-Base.codeunit(sv::BitStringView, i::Integer) = parent(sv)[i] % codeunit(sv)
+Base.codeunit(sv::BitStringView, i::Integer) = to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
 
-Base.isvalid(sv::BitStringView, i::Integer) = in(i, Base.axes1(parent(sv)))
-Base.length(sv::BitStringView) = length(parent(sv))
+Base.isvalid(sv::BitStringView, i::Integer) = in(i, bitaxes1(parent(sv)))
+Base.length(sv::BitStringView) = bitlength(parent(sv))
 
 function Base.getindex(sv::BitStringView, i::Integer)
     @boundscheck checkbounds(sv, i)
-    @inbounds to_binary_char(parent(sv)[i])
+    @inbounds to_binary_char(_getindex(sv, i))
 end
 
 @inline function Base.getindex(sv::BitStringView, v::AbstractVector{<:Integer})
     @boundscheck checkbounds(sv, v)
-    return @inbounds bitstringview(parent(sv)[v])
+    return @inbounds bitstringview(_getindex(sv, v))
 end
 
 @inline function Base.getindex(sv::BitStringView, v::AbstractUnitRange{<:Integer})
     @boundscheck checkbounds(sv, v)
-    return @inbounds bitstringview(parent(sv)[v])
+    return @inbounds bitstringview(_getindex(sv, v))
 end
 
 # Warning! non-"1 based vectors" might fail here
 @inline function Base.iterate(bv::BitStringView, i::Int=firstindex(parent(bv)))
-    if (i % UInt) - 1 < lastindex(parent(bv))
+    if (i % UInt) - 1 < bitlastindex(parent(bv))
         (@inbounds bv[i], i + 1)
     else
         nothing
@@ -56,13 +58,4 @@ Base.convert(::Type{BitsX.StaticBitVectorView{T}}, x::BitsX.StaticBitVectorView{
 # Makes String(x) twice as fast. But still not as fast as using collect as below.
 Base._str_sizehint(b::BitStringView) = sizeof(b)
 
-# Note that calling String(x) on this type
-# x::BitStringView{Bool, BitsX.StaticBitVectorView{Int64}}
-# is very slow. Better to call String(collect(x))
-# But, in general collecting is not better.
-# This could be fixed.
-
-# So we define this as a workaround
-Base.String(x::BitStringView{T, StaticBitVectorView{V}}) where {T,V} = String(collect(x))
-# And this. Maybe use a supertype instead. Other AbstractStaticBitVector probably need this.
-Base.String(x::BitStringView{T, StaticBitVector{V}}) where {T,V} = String(collect(x))
+Base.String(bs::BitStringView) = String(copyto!(Base.StringVector(length(bs)), codeunits(bs)))
