@@ -113,8 +113,7 @@ to instance.
 bitlength(x::T) where T = bitsizeof(T)
 bitlength(x::BigFloat) =  1 + MPFR_EXP_BITSIZE + precision(x)
 bitlength(x::BigInt) = abs(x.size) * Base.GMP.BITS_PER_LIMB # bitsizeof(Base.GMP.Limb)
-bitlength(x::AbstractVector{Bool}) = length(x)
-bitlength(x::BitArray) = length(x)
+bitlength(v::AbstractArray) = length(v)
 
 """
     bitlength(str::AbstractString)
@@ -268,12 +267,12 @@ Similar to `Bits.bit` from registered `Bits.jl` package. A difference is that
 the return type here does not depend on the input type, but rather is always `Int`.
 (Check a. is this true and b. what do we prefer?)
 """
-bit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Int
+@inline bit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Int
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
 bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
 bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
-bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
-bit(::OneBased, args...) = bit(args...)
+@inline bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
+@inline bit(::OneBased, args...) = bit(args...)
 
 """
     bit0(x, i)
@@ -287,7 +286,7 @@ bit0(x, i) = bit(ZeroBased(), x, i)
 
 Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
 """
-tstbit0(x, i) = tstbit(ZeroBased(), x, i)
+@inline tstbit0(x, i) = tstbit(ZeroBased(), x, i)
 
 
 ## NB: In the following few functions there are two kinds of checking.
@@ -340,11 +339,15 @@ julia> tstbit(0b101, 3)
 true
 ```
 """
-tstbit(x, i::Integer) = bit(x, i) % Bool
+#@inline tstbit(x, i::Integer) = bit(x, i) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) === one(typeof(x)) ? true : false
+@inline tstbit(x::Integer, i::Integer) = ((>>>(x, UInt(i-1))) & 1) != 0
+@inline tstbit(x, i::Integer) = bit(x, i) % Bool
 tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
 
-tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
-tstbit(::OneBased, args...) = tstbit(args...)
+@inline tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
+@inline tstbit(::OneBased, args...) = tstbit(args...)
 
 # Maybe from Random module via Bits.jl
 function tstbit(x::BigFloat, i::Integer)
@@ -567,11 +570,11 @@ count_bits(s::AbstractString) = count_bits(codeunits(s))
 count_bits(v::AbstractVector{UInt8}) = count(is_binary_char, v)
 
 ###
-### selectbits
+### bitgetindex
 ###
 
 """
-    selectbits(::Type{OT}=T, x::T, bitinds)
+    bitgetindex(::Type{OT}=T, x::T, bitinds)
 
 Return the sub-collection of the bits in `x` specified by `bitinds`.
 The return type is `OT` which defaults to the input type.
@@ -579,17 +582,23 @@ The return type is `OT` which defaults to the input type.
 For example, for bitstring `x::String` this is equivalent to `x[bitinds]`, but is
 more efficient.
 """
-@inline selectbits(x::T, bitinds) where T = selectbits(T, x, bitinds)
+@inline bitgetindex(x::T, bitinds) where T = bitgetindex(T, x, bitinds)
+# In analogy to indexing into an Array, a single element is returned as an eltype
+@inline bitgetindex(x, bitind::Integer) = bitgetindex(Bool, x, bitind)
+
+
+#bitgetindex(::Type{T}, v, i::Integer) where T = bitgetindex(T, v, Int(i))
+bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
+#bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 
 # NB. StringVector is not exported. I am supposed to use IOBuffer instead.
 # This may break.
-@inline function selectbits(::Type{Vector{UInt8}}, s::String, bitinds)
+@inline function bitgetindex(::Type{Vector{UInt8}}, s::String, bitinds)
     sv = Base.StringVector(length(bitinds)) # StringVector always seems faster
-#    sv = Vector{UInt8}(undef, length(bitinds))
-    return _selectbits!(sv, s, bitinds)
+    return _bitgetindex!(sv, s, bitinds)
 end
 
-@inline function _selectbits!(dest, s::String, bitinds)
+@inline function _bitgetindex!(dest, s::String, bitinds)
     for i in eachindex(bitinds)
         bi = @inbounds bitinds[i]
         c = codeunits(s)[bi]
@@ -598,18 +607,71 @@ end
     return dest
 end
 
-selectbits(::Type{String}, s::String, bitinds) = String(selectbits(Vector{UInt8}, s, bitinds))
+bitgetindex(::Type{String}, s::String, bitinds) = String(bitgetindex(Vector{UInt8}, s, bitinds))
 
-@inline function selectbits(::Type{T2}, x::T, bitinds) where {T<:Real, T2}
-    xout = zero(T)
+
+"""
+    fliporder(::Type{T}, i::Int)
+    fliporder(x::T, i::Int)
+
+If `i` is an index into bits of `x` (or type `T`) from the left,
+return the index from the right. Also flips an index from the right to
+one from the left.
+"""
+fliporder(::Type{T}, i::Int) where T = bitsizeof(T) - i + 1
+fliporder(x, i::Int) = bitlength(x) - i + 1
+
+# Leftmost bit is index 1
+# bit(x, i) considers rightmost bit 1
+@inline function bitgetindex(::Type{T2}, x::Real, bitinds) where {T2}
+    xin = asint(x)
+    xout = zero(xin)
     for i in eachindex(bitinds)
-        @inbounds bi = bitinds[i]
-        xout += (x >> (bi - i)) & (1 << (i - 1))
+        @inbounds bi = fliporder(xout, bitinds[i])
+        xout += (xin >> (bi - i)) & (1 << (i - 1))
     end
     return xout % T2
 end
 
-function selectbits(::Type{T2}, x::T, bitinds::AbstractUnitRange{<:Integer}) where {T<:Real, T2}
-    i0, i1 = extrema(bitinds)
+function bitgetindex(::Type{T2}, x::T, bitinds::AbstractUnitRange{<:Integer}) where {T<:Real, T2}
+    _i0, _i1 = extrema(bitinds)
+    bz = bitlength(x)
+    i1 = bz - _i0 + 1
+    i0 = bz - _i1 + 1
     return reinterpret(T, masked(asint(x), i0:i1) >> (i0-1)) % T2
 end
+
+###
+### bitreverse, bitrotate
+###
+
+## These are exported by Base.
+
+#@inline bitreverse(x::T) where T = bitreverse(T, x)
+# We could restrict the type, but we don't want to verify that x::Vector{Int} only has 0 and 1
+# The downside, is you can get erroneous wrong output for wrong input
+#bitreverse(v) = reverse(v)
+bitreverse!(v) = reverse!(v)
+
+###
+### bitsize
+###
+## Don't confuse with bitsizeof
+
+bitsize(a) = size(a)
+#bitlength(a) = prod(bitsize(a))
+bitsize(x::Real) = (bitlength(x),)
+
+function bitaxes(A)
+    @inline
+    map(Base.oneto, bitsize(A))
+end
+
+# performance optimization, as in Base.
+#bitaxes1(A::AbstractArray{<:Any,0}) = OneTo(1)
+bitaxes1(A) = (@inline; bitaxes(A)[1])
+biteachindex(A) = (@inline(); bitaxes1(A))
+bitlastindex(A) = last(biteachindex(A))
+
+# bitlength(x::AbstractArray{Bool}) = length(x) Not needed
+
