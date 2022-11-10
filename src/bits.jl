@@ -628,17 +628,17 @@ fliporder(x, i::Int) = bitlength(x) - i + 1
     xout = zero(xin)
     for i in eachindex(bitinds)
         @inbounds bi = fliporder(xout, bitinds[i])
-        xout += (xin >> (bi - i)) & (1 << (i - 1))
+        xout += (xin >>> (bi - i)) & (1 << (i - 1))
     end
     return xout % T2
 end
 
 function bitgetindex(::Type{T2}, x::T, bitinds::AbstractUnitRange{<:Integer}) where {T<:Real, T2}
+    xout = asint(x)
     _i0, _i1 = extrema(bitinds)
-    bz = bitlength(x)
-    i1 = bz - _i0 + 1
-    i0 = bz - _i1 + 1
-    return reinterpret(T, masked(asint(x), i0:i1) >> (i0-1)) % T2
+    i1 = fliporder(xout, _i0)
+    i0 = fliporder(xout, _i1)
+    return reinterpret(T, masked(xout, i0:i1) >>> (i0-1)) % T2
 end
 
 ###
@@ -672,6 +672,11 @@ end
 bitaxes1(A) = (@inline; bitaxes(A)[1])
 biteachindex(A) = (@inline(); bitaxes1(A))
 bitlastindex(A) = last(biteachindex(A))
+
+bit_count_ones(x) = count_ones(x)
+
+bit_count_ones(s::AbstractString) = sum(is_one_char, codeunits(s))
+
 
 # bitlength(x::AbstractArray{Bool}) = length(x) Not needed
 
