@@ -591,6 +591,10 @@ more efficient.
 bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
 #bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 
+bitgetindex(A::AbstractArray, inds...) = getindex(A, inds...)
+# This is really slow. Ruins some kind of inference
+bitgetindex(A::AbstractArray, inds::NTuple{N, <:Integer}) where N = getindex(A, collect(inds))
+
 # NB. StringVector is not exported. I am supposed to use IOBuffer instead.
 # This may break.
 @inline function bitgetindex(::Type{Vector{UInt8}}, s::String, bitinds)
@@ -607,8 +611,11 @@ end
     return dest
 end
 
-bitgetindex(::Type{String}, s::String, bitinds) = String(bitgetindex(Vector{UInt8}, s, bitinds))
-
+# This will return a single Char in bitinds::Int even though we specified Type{String}
+# We call getindex, because this only deals with codeunits, and Base has optimized this.
+@inline bitgetindex(::Type{String}, s::String, bitinds) = getindex(s, bitinds)
+# No this is slow
+# bitgetindex(::Type{String}, s::String, bitinds) = String(bitgetindex(Vector{UInt8}, s, bitinds))
 
 """
     fliporder(::Type{T}, i::Int)
