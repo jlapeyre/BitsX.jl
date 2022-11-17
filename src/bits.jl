@@ -76,6 +76,41 @@ end
 from_binary_char(x) = from_binary_char(Bool, x)
 
 ###
+### randbitstring
+###
+
+"""
+    randbitstring([rng = default_rng()], n::Integer, [dims])
+
+Return a random string of `'1'`s and `'0'`s of length `n`.
+
+The distribution is uniform over all such strings. If `dims` is given
+return an `Array` of random bitstrings with dimensions `dims`.
+"""
+@inline randbitstring(rng::Random.AbstractRNG, n::Integer) = Random.randstring(rng, (_ZERO_CHAR_CODE, _ONE_CHAR_CODE), n)
+@inline randbitstring(n::Integer, args...) = randbitstring(Random.default_rng(), n, args...)
+
+function randbitstring(rng::Random.AbstractRNG, n::Integer, dims::NTuple{N,Int}) where N
+    return randbitstring!(rng, Array{String, N}(undef, dims), n)
+end
+
+"""
+    randbitstring!([rng = default_rng()], a::AbstractArray, n::Integer)
+
+Fill array `a` with random bitstrings.
+"""
+randbitstring!(a::AbstractArray, n::Integer) =
+    randbitstring!(Random.default_rng(), a, n)
+
+function randbitstring!(rng::Random.AbstractRNG, a::Array, n::Integer)
+    for i in eachindex(a)
+        @inbounds a[i] = randbitstring(rng, n)
+    end
+    return a
+end
+
+
+###
 ### bitsizeof
 ###
 
@@ -270,7 +305,11 @@ the return type here does not depend on the input type, but rather is always `In
 @inline bit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Int
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
 bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
-bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
+
+function bit(x::AbstractVector{Bool}, i::Integer)
+    @boundscheck checkbounds(x, i)
+    return @inbounds x[i] # % Int
+end
 @inline bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
 @inline bit(::OneBased, args...) = bit(args...)
 
@@ -279,7 +318,7 @@ bit(x::AbstractVector{Bool}, i::Integer) = x[i] # % Int
 
 Like `bit(x, i)` except the first bit has index `0` rather than `1`.
 """
-bit0(x, i) = bit(ZeroBased(), x, i)
+@inline bit0(x, i) = bit(ZeroBased(), x, i)
 
 """
     tstbit0(x, i)
@@ -595,12 +634,20 @@ bitgetindex(A::AbstractArray, inds...) = getindex(A, inds...)
 # This is really slow. Ruins some kind of inference
 bitgetindex(A::AbstractArray, inds::NTuple{N, <:Integer}) where N = getindex(A, collect(inds))
 
+
 # NB. StringVector is not exported. I am supposed to use IOBuffer instead.
 # This may break.
+# @inline function bitgetindex(::Type{Vector{UInt8}}, s::String, bitinds)
+#     sv = Base.StringVector(length(bitinds)) # StringVector always seems faster
+#     return _bitgetindex!(sv, s, bitinds)
+# end
+
+# This is better than above
 @inline function bitgetindex(::Type{Vector{UInt8}}, s::String, bitinds)
-    sv = Base.StringVector(length(bitinds)) # StringVector always seems faster
-    return _bitgetindex!(sv, s, bitinds)
+    s1 = s[bitinds]
+    return unsafe_wrap(Vector{UInt8}, s1)
 end
+
 
 @inline function _bitgetindex!(dest, s::String, bitinds)
     for i in eachindex(bitinds)
@@ -611,7 +658,7 @@ end
     return dest
 end
 
-# This will return a single Char in bitinds::Int even though we specified Type{String}
+# This will return a single Char for bitinds::Int even though we specified Type{String}
 # We call getindex, because this only deals with codeunits, and Base has optimized this.
 @inline bitgetindex(::Type{String}, s::String, bitinds) = getindex(s, bitinds)
 # No this is slow
@@ -686,4 +733,3 @@ bit_count_ones(s::AbstractString) = sum(is_one_char, codeunits(s))
 
 
 # bitlength(x::AbstractArray{Bool}) = length(x) Not needed
-

@@ -16,6 +16,8 @@ Tools for bits and masks. OUTOFDATEDOCS
 """
 module BitsX
 
+import Random
+
 export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN, StaticBitVectorView
 export AbstractStaticBitVector
 export bitsizeof, bitlength, bitsize, bitgetindex, biteachindex, bitlastindex
@@ -23,6 +25,7 @@ export undigits, undigits2
 export uint_type, min_uint_type, min_uint_bit_width, min_uint_byte_width
 export OneBased, ZeroBased
 export datatype
+export randbitstring, randbitstring!
 
 export mask, masked, leftmask, rightmask, rangemask,
     asint, bit, bit0, tstbit, tstbit0, unsafe_tstbit, min_bits, min_dits
