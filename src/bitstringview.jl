@@ -1,4 +1,4 @@
-struct BitStringView{DT, AT} <: AbstractString
+struct BitStringView{AT} <: AbstractString
     data::AT
 end
 
@@ -10,7 +10,8 @@ Each element of `v` must satifiy either `isone` or `iszero`.
 
 `String(bitstringview(v))` converts `v` to a `String.
 """
-bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
+bitstringview(v) = BitStringView{typeof(v)}(v)
+#bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
 Base.parent(sv::BitStringView) = sv.data
 Base.ncodeunits(sv::BitStringView) = bitlength(parent(sv))
 
@@ -46,6 +47,8 @@ end
         nothing
     end
 end
+
+Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(bitreverse(parent(bv)))
 
 for func in (:reverse, :reverse!)
     @eval Base.$(func)(bv::BitStringView, args...) = bitstringview(Base.$(func)(parent(bv), args...))
