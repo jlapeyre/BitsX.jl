@@ -20,8 +20,8 @@ julia> bits((0,1,0,1))
 ```
 """
 function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
-    #    bits(undigits(min_uint_type(n), _digits; base=2), n)
-    T = min_uint_type(n)
+    #    bits(undigits(BitIntegerX.min_uint_type(n), _digits; base=2), n)
+    T = BitIntegersX.min_uint_type(n)
     return bits(T, _digits, n)
 end
 
@@ -392,7 +392,7 @@ _bits(s::AbstractString, ::Val{true}, ::Type{T}, ::Type{ST}) where {T, ST} =
     _bits(normalize_bitstring(s), Val(false), T, ST)
 
 _bits(s::AbstractString, ::Val{false}, ::Type{Nothing}, ::Type{ST}) where {ST} =
-    _bits(s, Val(false), min_uint_type(ncodeunits(s)), ST)
+    _bits(s, Val(false), BitIntegersX.min_uint_type(ncodeunits(s)), ST)
 
 # Don't convert to bits type. If T==String, return string, unchanged or normalized.
 _bits(s::AbstractString, ::Val{false}, ::Type{T}) where {T<:AbstractString} = T(s)
