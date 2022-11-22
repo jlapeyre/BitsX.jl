@@ -43,6 +43,7 @@ const Word = UInt
 export SBitArray
 
 include("bitintegers.jl") # This is copied from BitIntegers.jl in order to include bug fixes
+#using .BitIntegers: BitIntegers
 include("bitintegers_extra.jl")
 include("parse.jl")
 include("bits.jl")

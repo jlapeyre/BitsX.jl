@@ -2,7 +2,9 @@
 ### BitInteger support
 ###
 
-using ..BitIntegers: UInt256, UInt512, UInt1024
+module BitIntegersX
+
+using ..BitIntegers: BitIntegers, UInt256, UInt512, UInt1024
 
 const _UINT_TYPES = Dict{Int, DataType}()
 
@@ -137,3 +139,5 @@ get_one_bit_masks(_) = nothing
 @inline function get_uint_one_bit_masks_type(::Type{UIntT}) where {UIntT}
     return get_uint_one_bit_masks_bytes(byte_width(UIntT))
 end
+
+end # module BitIntegersX

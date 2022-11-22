@@ -46,7 +46,7 @@ _parse_bin(::Type{T}, s::AbstractString, filter) where T = _parse_bin(T, codeuni
 
 function _parse_bin(::Type{T}, c::AbstractVector{UInt8}, filter::Bool) where T
     return filter ? __parse_bin_permissive(T, c)::T :
-        __parse_bin(T, c, get_one_bit_masks(T))::T
+        __parse_bin(T, c, BitIntegersX.get_one_bit_masks(T))::T
 end
 
 _parse_via_BigInt(::Type{T}, c::CodeUnits) where T = _parse_via_BigInt(T, c.s)
