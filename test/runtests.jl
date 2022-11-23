@@ -1,5 +1,8 @@
-using BitsX: BitsX, min_bits, undigits, bits, min_uint_type, uint_type, bitsizeof,
+using BitsX: BitsX, min_bits, undigits, bits, bitsizeof,
     StaticBitVector
+
+import BitsX.BitIntegersX
+
 using Test
 
 @testset "bitsizeof" begin
@@ -20,7 +23,7 @@ end
     @test Tuple(bits(tup)) == tup
     @test Tuple(bits("000111")) == tup
     @test Tuple(bits("<000111>"; strip=true)) == tup
-    @test_throws ArgumentError Tuple(bits("<000111>"; strip=false))
+    @test_throws DomainError Tuple(bits("<000111>"; strip=false))
     @test string(bits(Tuple(bits("111000")))) == "<111000>"
     @test reverse(bits("111000")) == bits("000111")
 
@@ -43,13 +46,14 @@ end
 
 
 @testset "bitintegers" begin
-    @test min_uint_type(0) == UInt8
-    @test min_uint_type(1) == UInt8
-    @test min_uint_type(7) == UInt8
-    @test min_uint_type(8) == UInt8
-    @test min_uint_type(9) == UInt16
-    @test_throws DomainError min_uint_type(-1)
-    @test min_uint_type(1000) == BitsX.UInt1000
+    BX = BitIntegersX
+    @test BX.min_uint_type(0) == UInt8
+    @test BX.min_uint_type(1) == UInt8
+    @test BX.min_uint_type(7) == UInt8
+    @test BX.min_uint_type(8) == UInt8
+    @test BX.min_uint_type(9) == UInt16
+    @test_throws DomainError BX.min_uint_type(-1)
+    @test BX.min_uint_type(1000) == BitsX.UInt1000
     @test uint_type(8) == UInt8
     @test uint_type(80) == BitsX.UInt80
 end

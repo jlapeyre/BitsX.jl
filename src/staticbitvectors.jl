@@ -130,7 +130,11 @@ Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 Base.:(>>)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x >> i, length(x))
 Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
 
-@inline function Base.iterate(bv::AbstractStaticBitVectorLen, i=1)
+# This is no faster than the more general method below.
+# Why is this one restricted to AbstractStaticBitVectorLen ?
+# Whey not use it for all AbstractStaticBitVector ?
+# Lack of tests.
+@inline function Base.iterate(bv::AbstractStaticBitVectorLen, i::Int=1)
     if (i % UInt) - 1 < length(bv)
         (@inbounds bv[i], i + 1)
     else
