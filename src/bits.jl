@@ -716,15 +716,20 @@ bitsize(a) = size(a)
 #bitlength(a) = prod(bitsize(a))
 bitsize(x::Real) = (bitlength(x),)
 
+# FIXME: @inline at call sites is a v1.8 feature
+# So I disabled it in three places below.
+# Find out how important it is.
 function bitaxes(A)
-    @inline
+#    @inline
     map(Base.oneto, bitsize(A))
 end
 
 # performance optimization, as in Base.
 #bitaxes1(A::AbstractArray{<:Any,0}) = OneTo(1)
-bitaxes1(A) = (@inline; bitaxes(A)[1])
-biteachindex(A) = (@inline(); bitaxes1(A))
+bitaxes1(A) = bitaxes(A)[1]
+biteachindex(A) = bitaxes1(A)
+# bitaxes1(A) = (@inline; bitaxes(A)[1])
+# biteachindex(A) = (@inline(); bitaxes1(A))
 bitlastindex(A) = last(biteachindex(A))
 
 bit_count_ones(x) = count_ones(x)

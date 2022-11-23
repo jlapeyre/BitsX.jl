@@ -1,4 +1,10 @@
+module ParseBin
+
 using Base: CodeUnits
+using BitsX: is_one_char, is_zero_char
+using ..BitIntegersX: min_uint_type, get_one_bit_masks
+
+export parse_bin
 
 ###
 ### Faster parse of binary string than `Base.parse`
@@ -20,7 +26,10 @@ the return type is the narrowest suitable unsigned integer type.
 
 The type `UIntT` is named `UInt8`, `UInt16`, etc where the number of bits is a factor of `8`.
 The largest type that is pre-generated from `BitIntegers.jl` is `UInt1024`. If `UIntT` is omitted,
-a type that has not been pre-generated will be created.
+a type that has not been pre-generated will be created. `parse_bin` is often much faster if `UIntT` is
+supplied.
+
+Leading zeros are included in the calculation of the width of the resulting integer.
 
 Usually `parse_bin` is faster than `Base.parse`. The factor varies from about 5 to 9. However, for bit widths
 larger than about 650, `parse_bin` first parses the string as a `BigInt` using `Base.parse` and then converts
@@ -46,7 +55,7 @@ _parse_bin(::Type{T}, s::AbstractString, filter) where T = _parse_bin(T, codeuni
 
 function _parse_bin(::Type{T}, c::AbstractVector{UInt8}, filter::Bool) where T
     return filter ? __parse_bin_permissive(T, c)::T :
-        __parse_bin(T, c, BitIntegersX.get_one_bit_masks(T))::T
+        __parse_bin(T, c, get_one_bit_masks(T))::T
 end
 
 _parse_via_BigInt(::Type{T}, c::CodeUnits) where T = _parse_via_BigInt(T, c.s)
@@ -99,3 +108,5 @@ function __parse_bin(::Type{T}, c)::T where T
     end
     return x
 end
+
+end # module ParseBin
