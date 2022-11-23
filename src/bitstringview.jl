@@ -5,7 +5,7 @@ end
 """
    bitstringview(v)
 
-Return an `AbstractString` view of the collection of numbers `v`.
+Return an `AbstractString` view of the collection of numbers `v` that represent a sequence of bits.
 Each element of `v` must satifiy either `isone` or `iszero`.
 
 `String(bitstringview(v))` converts `v` to a `String.
@@ -34,7 +34,7 @@ end
     return @inbounds bitstringview(_getindex(sv, v))
 end
 
-@inline function Base.getindex(sv::BitStringView, v::AbstractUnitRange{<:Integer})
+@inline function Base.getindex(sv::BitStringView, v::UnitRange{<:Integer})
     @boundscheck checkbounds(sv, v)
     return @inbounds bitstringview(_getindex(sv, v))
 end
@@ -58,7 +58,8 @@ end
 Base.convert(::Type{BitsX.StaticBitVectorView{T}}, x::BitsX.StaticBitVectorView{T}) where T = x
 
 # This allows fewer allocations and higher perf in print_to_string
-# Makes String(x) twice as fast. But still not as fast as using collect as below.
+# Makes String(x) twice as fast. But still not as fast as using collect, or the
+# even faster method below.
 Base._str_sizehint(b::BitStringView) = sizeof(b)
 
 Base.String(bs::BitStringView) = String(copyto!(Base.StringVector(length(bs)), codeunits(bs)))
