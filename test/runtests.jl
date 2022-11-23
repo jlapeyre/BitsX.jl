@@ -1,9 +1,26 @@
 using BitsX: BitsX, min_bits, undigits, bits, bitsizeof,
     StaticBitVector
 
+using BitsX: parse_bin
+
 import BitsX.BitIntegersX
 
 using Test
+
+@testset "parse_bin" begin
+    @test parse_bin("") === 0x00
+    @test parse_bin(UInt, "") === UInt(0)
+    @test parse_bin("1") === 0x01
+    @test parse_bin(UInt, "1") === UInt(1)
+    @test parse_bin("0") === 0x00
+    @test_throws DomainError parse_bin("0_")
+    @test parse_bin("0_"; filter=true) === 0x00
+    @test parse_bin("00000001") === 0x01
+    @test parse_bin("000000001") === 0x0001
+    # Should succeed
+    @test_throws BoundsError parse_bin(UInt8, "0000000001")
+    @test parse_bin("10000001") == 129
+end
 
 @testset "bitsizeof" begin
     @test bitsizeof(Bool) == 1
@@ -43,7 +60,6 @@ end
     @test min_bits("0") == 0
     @test min_bits("") == 0
 end
-
 
 @testset "bitintegers" begin
     BX = BitIntegersX

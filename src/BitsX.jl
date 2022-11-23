@@ -45,8 +45,11 @@ export SBitArray
 include("bitintegers.jl") # This is copied from BitIntegers.jl in order to include bug fixes
 #using .BitIntegers: BitIntegers
 include("bitintegers_extra.jl")
-include("parse.jl")
 include("bits.jl")
+
+include("parse.jl")
+using .ParseBin: parse_bin
+
 include("staticbitvectors.jl")
 include("bitvecview.jl")
 include("bitstringview.jl")
