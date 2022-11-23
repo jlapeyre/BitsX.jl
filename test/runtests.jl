@@ -1,11 +1,45 @@
 using BitsX: BitsX, min_bits, undigits, bits, bitsizeof,
     StaticBitVector
 
-using BitsX: parse_bin
+using BitsX: parse_bin, bitstringview, BitStringView
 
 import BitsX.BitIntegersX
 
 using Test
+
+@testset "bitstringview" begin
+    v = [1, 0, 1, 0, 1]
+    bs = bitstringview(v)
+    @test bs isa BitStringView
+    @test bs == "10101"
+    @test parent(bs) == v
+    @test ncodeunits(bs) == length(v)
+    @test codeunit(bs) == UInt8
+    @test codeunit(bs, 1) == 0x31
+    @test isvalid(bs, 1)
+    @test ! isvalid(bs, 10)
+    @test length(bs) == length(v)
+    @test bs[end] == '1'
+    @test bs[[1,3,5]] == "111"
+    sbs = String(bs)
+    @test sbs isa String
+    @test [x for x in bs] == [x for x in sbs]
+    @test reverse(bitstringview([1,1,0,0])) == "0011"
+
+    n = UInt64(1000)
+    bs1 = bitstringview(n)
+    @test bs1 == "0000000000000000000000000000000000000000000000000000001111101000"
+    @test bs1[1] == '0'
+    @test bs1[end-3] == '1'
+    @test parent(bs1) === n
+    @test ncodeunits(bs1) == 64
+    @test codeunit(bs1) == UInt8
+    @test codeunit(bs1, 64 - 3) == 0x31
+    @test isvalid(bs1, 1)
+    @test isvalid(bs1, 64)
+    @test !isvalid(bs1, 65)
+    @test_broken bs1[55:60] == "11111"
+end
 
 @testset "parse_bin" begin
     @test parse_bin("") === 0x00
@@ -15,6 +49,7 @@ using Test
     @test parse_bin("0") === 0x00
     @test_throws DomainError parse_bin("0_")
     @test parse_bin("0_"; filter=true) === 0x00
+    @test parse_bin("1001 0110 1111"; filter=true) == parse_bin("100101101111")
     @test parse_bin("00000001") === 0x01
     @test parse_bin("000000001") === 0x0001
     # Should succeed

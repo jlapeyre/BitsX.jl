@@ -621,19 +621,22 @@ The return type is `OT` which defaults to the input type.
 For example, for bitstring `x::String` this is equivalent to `x[bitinds]`, but is
 more efficient.
 """
-@inline bitgetindex(x::T, bitinds) where T = bitgetindex(T, x, bitinds)
+@inline bitgetindex(x::T, bitind::Integer) where T = bitgetindex(T, x, bitind)
+# Disabled this one
+#@inline bitgetindex(x::T, bitinds) where T = bitgetindex(T, x, bitinds)
+
 # In analogy to indexing into an Array, a single element is returned as an eltype
 @inline bitgetindex(x, bitind::Integer) = bitgetindex(Bool, x, bitind)
 
-
 #bitgetindex(::Type{T}, v, i::Integer) where T = bitgetindex(T, v, Int(i))
 bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
-#bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
+# Hmm. Yes, I do want this.
+bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 
-bitgetindex(A::AbstractArray, inds...) = getindex(A, inds...)
+bitgetindex(A::AbstractArray, inds::AbstractArray{<:Int}) = getindex(A, inds)
+bitgetindex(A::AbstractArray, inds::Int...) = getindex(A, inds...)
 # This is really slow. Ruins some kind of inference
 bitgetindex(A::AbstractArray, inds::NTuple{N, <:Integer}) where N = getindex(A, collect(inds))
-
 
 # NB. StringVector is not exported. I am supposed to use IOBuffer instead.
 # This may break.
