@@ -32,7 +32,7 @@ represent `nbits` bits. The widths are restricted to multiples of eight.
 """
 @inline function min_uint_byte_width(n_bits::Int)::Int
     # TODO: Remove check for testing
-#    n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
+    n_bits >= 0 || throw(DomainError(n_bits, "Must be non-negative."))
     n_bits == 0 && return 1
     (q, r) = divrem(n_bits, 8)
     if iszero(r)
