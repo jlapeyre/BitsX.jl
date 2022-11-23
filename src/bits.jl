@@ -1,4 +1,5 @@
 const BoolOrVal = Union{Bool, Val{true}, Val{false}}
+# TODO: what do we expect that this supports? Can you index into Generator ? No.
 const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
 const _ZERO_CHAR_CODE = UInt8('0')
@@ -35,29 +36,36 @@ is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
 Convert `x` to the ASCII code for character `'0'` or `'1'`.
 `x` must be equal to either `zero(T)` or `one(T)`.
-`T` can be any type that implements `zero` and `one`,
-or `iszero` and `isone`.
+
+`T` can be any type that implements `iszero` (or `zero`) and `isone`
+(or `one`). Alternatively, you can implement `isbinzero` (or `binzero`)
+and `isbinone` (or `binone`) if `zero` and `one` do not give the desired
+result for a type.
 """
 function to_binary_char_code(x::T) where T
-    iszero(x) && return _ZERO_CHAR_CODE
-    isone(x) && return _ONE_CHAR_CODE
+    isbinzero(x) && return _ZERO_CHAR_CODE
+    isbinone(x) && return _ONE_CHAR_CODE
     throw(DomainError(x, "Must be 0 or 1."))
 end
 
 binzero(x) = zero(x)
 binone(x) = one(x)
 isbinzero(x) = x == binzero(x)
-isbinone(x) = x == binzero(x)
+isbinone(x) = x == binone(x)
 binzero(::Char) = '0'
 binone(::Char) = '1'
-
 
 """
     to_binary_char(x::T)::Char
 
 Convert `x` to the character `'0'` or `'1'`.
+Convert `x` to the ASCII code for character `'0'` or `'1'`.
 `x` must be equal to either `zero(T)` or `one(T)`.
-`T` can be any type that implements `zero` and `one`.
+
+`T` can be any type that implements `iszero` (or `zero`) and `isone`
+(or `one`). Alternatively, you can implement `isbinzero` (or `binzero`)
+and `isbinone` (or `binone`) if `zero` and `one` do not give the desired
+result for a type.
 """
 to_binary_char(x) = Char(to_binary_char_code(x))
 
@@ -135,6 +143,7 @@ If the number of indexable bits in an instance of type `T` cannot be computed
 from the type alone, then an error is thrown.
 """
 bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
+bitsizeof(::Type{NTuple{N, T}}) where {N, T <: Integer} = N
 const _BITS_PER_BYTE = 8
 _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
 _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
@@ -642,6 +651,7 @@ more efficient.
 
 #bitgetindex(::Type{T}, v, i::Integer) where T = bitgetindex(T, v, Int(i))
 bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
+bitgetindex(::Type{<:Any}, v::Tuple, i::Int) = v[i]
 # Hmm. Yes, I do want this.
 bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 
@@ -730,7 +740,8 @@ bitreverse!(v) = reverse!(v)
 bitsize(a) = size(a)
 #bitlength(a) = prod(bitsize(a))
 bitsize(x::Real) = (bitlength(x),)
-bitsize(s::AbstractString) = ncodeunits(s)
+bitsize(s::AbstractString) = (ncodeunits(s),)
+bitsize(t::Tuple) = (length(t),)
 
 # FIXME: @inline at call sites is a v1.8 feature
 # So I disabled it in three places below.

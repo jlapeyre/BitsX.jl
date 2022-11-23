@@ -1,4 +1,4 @@
-using BitsX: BitsX, min_bits, undigits, bits, bitsizeof,
+using BitsX: BitsX, min_bits, undigits, bits, bitsizeof, bitsize,
     StaticBitVector
 
 using BitsX: parse_bin, bitstringview, BitStringView
@@ -28,7 +28,8 @@ using Test
 
     n = UInt64(1000)
     bs1 = bitstringview(n)
-    @test bs1 == "0000000000000000000000000000000000000000000000000000001111101000"
+    sbs1 = "0000000000000000000000000000000000000000000000000000001111101000"
+    @test bs1 == sbs1
     @test bs1[1] == '0'
     @test bs1[end-3] == '1'
     @test parent(bs1) === n
@@ -40,6 +41,14 @@ using Test
     @test !isvalid(bs1, 65)
     @test_broken bs1[55:60] == "11111"
     @test String([x for x in bs1]) == bs1
+
+    @test bitstringview(sbs1) == sbs1
+    @test bitstringview(sbs1) !== sbs1
+
+    t = (1, 1, 0, 0)
+    tv = bitstringview(t)
+    @test tv == "1100"
+    @test bitsize(t) == (4, )
 end
 
 @testset "parse_bin" begin
