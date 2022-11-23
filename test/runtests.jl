@@ -53,7 +53,7 @@ end
     @test BX.min_uint_type(8) == UInt8
     @test BX.min_uint_type(9) == UInt16
     @test_throws DomainError BX.min_uint_type(-1)
-    @test BX.min_uint_type(1000) == BitsX.UInt1000
-    @test uint_type(8) == UInt8
-    @test uint_type(80) == BitsX.UInt80
+    @test BX.min_uint_type(1000) == BX.UInt1000
+    @test BX.uint_type(8) == UInt8
+    @test BX.uint_type(80) == BX.UInt80
 end
