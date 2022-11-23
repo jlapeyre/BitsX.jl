@@ -38,6 +38,8 @@ export BitArrayView, bitvecview, bitmatview, bitarrview, BitVectorView, BitMatri
 export BitStringView, bitstringview
 export fliporder
 
+export binzero, binone, isbinzero, isbinzero
+
 const Word = UInt
 
 export SBitArray

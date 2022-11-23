@@ -39,6 +39,7 @@ using Test
     @test isvalid(bs1, 64)
     @test !isvalid(bs1, 65)
     @test_broken bs1[55:60] == "11111"
+    @test String([x for x in bs1]) == bs1
 end
 
 @testset "parse_bin" begin

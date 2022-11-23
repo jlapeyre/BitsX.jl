@@ -35,13 +35,22 @@ is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
 Convert `x` to the ASCII code for character `'0'` or `'1'`.
 `x` must be equal to either `zero(T)` or `one(T)`.
-`T` can be any type that implements `zero` and `one`.
+`T` can be any type that implements `zero` and `one`,
+or `iszero` and `isone`.
 """
 function to_binary_char_code(x::T) where T
     iszero(x) && return _ZERO_CHAR_CODE
     isone(x) && return _ONE_CHAR_CODE
     throw(DomainError(x, "Must be 0 or 1."))
 end
+
+binzero(x) = zero(x)
+binone(x) = one(x)
+isbinzero(x) = x == binzero(x)
+isbinone(x) = x == binzero(x)
+binzero(::Char) = '0'
+binone(::Char) = '1'
+
 
 """
     to_binary_char(x::T)::Char
@@ -623,10 +632,13 @@ more efficient.
 """
 @inline bitgetindex(x::T, bitind::Integer) where T = bitgetindex(T, x, bitind)
 # Disabled this one
+
+# TODO: Which behavior do we want here. Pick only one
 #@inline bitgetindex(x::T, bitinds) where T = bitgetindex(T, x, bitinds)
+@inline bitgetindex(x, bitinds) = bitgetindex(Bool, x, bitinds)
 
 # In analogy to indexing into an Array, a single element is returned as an eltype
-@inline bitgetindex(x, bitind::Integer) = bitgetindex(Bool, x, bitind)
+#@inline bitgetindex(x, bitind::Integer) = bitgetindex(Bool, x, bitind)
 
 #bitgetindex(::Type{T}, v, i::Integer) where T = bitgetindex(T, v, Int(i))
 bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
@@ -718,6 +730,7 @@ bitreverse!(v) = reverse!(v)
 bitsize(a) = size(a)
 #bitlength(a) = prod(bitsize(a))
 bitsize(x::Real) = (bitlength(x),)
+bitsize(s::AbstractString) = ncodeunits(s)
 
 # FIXME: @inline at call sites is a v1.8 feature
 # So I disabled it in three places below.
