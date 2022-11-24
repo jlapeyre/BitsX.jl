@@ -654,6 +654,7 @@ bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
 bitgetindex(::Type{<:Any}, v::Tuple, i::Int) = v[i]
 # Hmm. Yes, I do want this.
 bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
+bitgetindex(bv::AbstractArray{Bool}, ind::Int) = getindex(bv, ind)
 
 bitgetindex(A::AbstractArray, inds::AbstractArray{<:Int}) = getindex(A, inds)
 bitgetindex(A::AbstractArray, inds::Int...) = getindex(A, inds...)

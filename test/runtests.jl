@@ -49,7 +49,12 @@ using Test
     tv = bitstringview(t)
     @test tv == "1100"
     @test bitsize(t) == (4, )
+
+    tv1 = bitstringview(BitVector(t))
+    @test tv1 == "1100"
 end
+
+
 
 @testset "parse_bin" begin
     @test parse_bin("") === 0x00
