@@ -4,9 +4,81 @@ using BitsX: BitsX, min_bits, undigits, bits, bitsizeof, bitsize,
 using BitsX: parse_bin, bitstringview, BitStringView, bitvecview, BitVectorView,
     bitmatview
 
+using BitsX: is_one_char, is_zero_char, is_binary_char, binzero, binone, isbinzero, isbinone,
+    to_binary_char, to_binary_char_code
+
 import BitsX.BitIntegersX
+import LinearAlgebra
 
 using Test
+
+@testset "char, code, zero, one" begin
+    @test !is_one_char(1)
+    @test !is_one_char(0)
+    @test !is_one_char(2)
+    @test is_one_char('1')
+    @test !is_one_char('0')
+    @test is_one_char(UInt8('1'))
+    @test !is_one_char(UInt8('0'))
+    @test is_one_char(UInt('1'))
+    @test !is_one_char(UInt('0'))
+
+    @test !is_zero_char(1)
+    @test !is_zero_char(0)
+    @test !is_zero_char(2)
+    @test is_zero_char('0')
+    @test !is_zero_char('1')
+    @test is_zero_char(UInt8('0'))
+    @test !is_zero_char(UInt8('1'))
+    @test is_zero_char(UInt('0'))
+    @test !is_zero_char(UInt('1'))
+
+    @test !is_zero_char("zebra")
+
+    for c in ('0', '1', UInt8('0'), UInt8('1'))
+        @test is_binary_char(c)
+    end
+    for c in ('a', UInt8('a'), 0, 1, "zebra")
+        @test !is_binary_char(c)
+    end
+
+    for c in ("0", "1", cos, complex(1), 1.0, [0, 1])
+        @test_throws MethodError binzero(c)
+        @test_throws MethodError binone(c)
+    end
+
+    for T in (Int, UInt, UInt8, Int8, BigInt)
+        @test binzero(T(47)) == 0
+        @test binone(T(47)) == 1
+        @test isa(binzero(T(47)), T)
+        @test isa(binone(T(47)), T)
+    end
+
+    dims = (2, 2)
+    @test binzero(rand(Int, dims)) == zeros(Int, (2,2))
+    @test binone(rand(Int, dims)) == LinearAlgebra.diagm(ones(Int, dims[1]))
+
+    for (zero_c, one_c, neither_c) in ((0, 1, 2), ('0', '1', 'a'))
+        @test isbinzero(zero_c)
+        @test !isbinzero(one_c)
+        @test !isbinzero(neither_c)
+        @test isbinone(one_c)
+        @test !isbinone(zero_c)
+        @test !isbinone(neither_c)
+    end
+
+    @test_throws DomainError to_binary_char(3)
+    @test_throws DomainError to_binary_char_code(3)
+
+    for (c0, c1) in ((0, 1), ('0', '1'), (false, true))
+        @test to_binary_char(c0) === '0'
+        @test to_binary_char(c1) === '1'
+        @test to_binary_char_code(c0) === UInt8('0')
+        @test to_binary_char_code(c1) === UInt8('1')
+    end
+    @test_throws DomainError to_binary_char_code(0x30)
+    @test_throws DomainError to_binary_char_code(0x31)
+end
 
 @testset "bitstringview" begin
     v = [1, 0, 1, 0, 1]
