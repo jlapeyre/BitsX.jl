@@ -19,7 +19,7 @@ Return `true` if `x` is equal to `'0'` or its ASCII code.
 """
 is_zero_char(x) = x == _ZERO_CHAR_CODE
 is_one_char(x::Char) = is_one_char(UInt8(x))
-is_zero_char(x::Char) = x == is_zero_char(UInt8(x))
+is_zero_char(x::Char) = is_zero_char(UInt8(x))
 
 """
     is_binary_char(x)
@@ -37,35 +37,88 @@ is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 Convert `x` to the ASCII code for character `'0'` or `'1'`.
 `x` must be equal to either `zero(T)` or `one(T)`.
 
-`T` can be any type that implements `iszero` (or `zero`) and `isone`
+`T` must implement `iszero` (or `zero`) and `isone`
 (or `one`). Alternatively, you can implement `isbinzero` (or `binzero`)
 and `isbinone` (or `binone`) if `zero` and `one` do not give the desired
 result for a type.
+
+See also [`binzero`](@ref), [`binone`](@ref).
 """
 function to_binary_char_code(x::T) where T
     isbinzero(x) && return _ZERO_CHAR_CODE
     isbinone(x) && return _ONE_CHAR_CODE
-    throw(DomainError(x, "Must be 0 or 1."))
+    throw(DomainError(x, "Must be zero or one value of type $T."))
 end
 
+"""
+    binzero(x::T)
+
+The value of type `T` representing bit value zero.
+
+This sometimes coincides with `zero`, which represents the additive
+identity in Julia.
+
+If `T <: Integer`, or a matrix thereof, return `zero(::T)`. If `T` equals `Char`, return `0`.
+If `T` is other `AbstractArray`,  `AbstractString`, `AbstractFloat`, `Complex`, throw
+a `MethodError`.
+"""
 binzero(x) = zero(x)
+
+"""
+    binone(x::T)
+
+The value of type `T` representing bit value one.
+
+This sometimes coincides with `one`, which represents the multiplicative
+identity in Julia.
+"""
 binone(x) = one(x)
-isbinzero(x) = x == binzero(x)
-isbinone(x) = x == binone(x)
 binzero(::Char) = '0'
 binone(::Char) = '1'
+binone(x::T) where {T <: AbstractMatrix{<:Integer}} = one(x)
+binzero(x::T) where {T <: AbstractMatrix{<:Integer}} = zero(x)
+
+let nb = Union{AbstractArray, AbstractString, AbstractFloat, Complex}
+    global binone(x::nb) = throw(MethodError(binone, (x,)))
+    global binzero(x::nb) = throw(MethodError(binzero, (x,)))
+end
+
+"""
+    isbinzero(x)
+
+Return `true` if `x` represents bit value zero.
+
+See also [`binzero`](@ref).
+"""
+isbinzero(x) = x == binzero(x)
+
+"""
+    isbinone(x)
+
+Return `true` if `x` represents bit value one.
+
+See also [`binone`](@ref).
+"""
+isbinone(x) = x == binone(x)
+
+# TODO: what is the best way to do this ? For example, instead
+# isbinone(x) = isone(x)
+# and then special cases to throw on String's etc.
+# or, as we have now...
+isbinone(x::T) where {T <: AbstractMatrix{<:Integer}} = isone(x)
+isbinzero(x::T) where {T <: AbstractMatrix{<:Integer}} = iszero(x)
 
 """
     to_binary_char(x::T)::Char
 
 Convert `x` to the character `'0'` or `'1'`.
 Convert `x` to the ASCII code for character `'0'` or `'1'`.
-`x` must be equal to either `zero(T)` or `one(T)`.
+`x` must be equal to either `binzero(T)` or `binone(T)`.
 
-`T` can be any type that implements `iszero` (or `zero`) and `isone`
-(or `one`). Alternatively, you can implement `isbinzero` (or `binzero`)
-and `isbinone` (or `binone`) if `zero` and `one` do not give the desired
-result for a type.
+`T` can be any type that implements `isbinzero` (or `binzero`) and `isbinone`
+(or `binone`).
+
+
 """
 to_binary_char(x) = Char(to_binary_char_code(x))
 
@@ -183,7 +236,7 @@ bitlength(s::AbstractString) = ncodeunits(s)
 Return `n::T` such that the `i`th bit and all bits to the right (lower)
 are one, and all bits to the left of the `i`th bit (higher) are zero.
 
-See `leftmask`, `rangemask`, `mask`.
+See also [`leftmask`](@ref), `rangemask`, `mask`.
 # Examples
 ```julia-repl
 julia> bitstring(rightmask(UInt8, 3))
