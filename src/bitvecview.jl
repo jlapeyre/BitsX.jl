@@ -4,32 +4,26 @@
 
 const _DEFAULT_CHECK = true
 
+"""
+    BitArrayView{V, N, T} <: AbstractArray{V, N}
+
+View an object of type `T` as an `AbstractArray{V, N}`
+where `V` is the eltype and `N` the number of dimensions.
+"""
 struct BitArrayView{V, N, T} <: AbstractArray{V, N}
     s::T
     dims::NTuple{N, Int}
 
-    function BitArrayView{V}(s::AbstractString; check::Bool=_DEFAULT_CHECK) where V
-        check && is_bitstring(s; throw=true)
-        dims = (ncodeunits(s),)
+    # TODO: could relax restriction on s, and rely on duck typing
+    function BitArrayView{V}(s::Union{AbstractString, Real}, len=bitlength(s); check::Bool=_DEFAULT_CHECK) where V
+        check && isa(s, AbstractString) && is_bitstring(s; throw=true)
+        dims = (len,)
         return new{V, length(dims), typeof(s)}(s, dims)
     end
 
-    function BitArrayView{V, N}(s::AbstractString, dims; check::Bool=_DEFAULT_CHECK) where {V, N}
-        check && is_bitstring(s; throw=true)
-        ncodeunits(s) >= prod(dims) || throw(DimensionMismatch("Input string length to small for array view"))
-        N == length(dims) || throw(DimensionMismatch("dims don't match dimension"))
-        return new{V, N, typeof(s)}(s, dims)
-    end
-
-    function BitArrayView{V}(s::Real; check::Bool=_DEFAULT_CHECK) where V
-        check && is_bitstring(s; throw=true)
-        dims = (bitlength(s),)
-        return new{V, length(dims), typeof(s)}(s, dims)
-    end
-
-    function BitArrayView{V, N}(s::Real, dims; check::Bool=_DEFAULT_CHECK) where {V, N}
-        check && is_bitstring(s; throw=true)
-        bitlength(s) >= prod(dims) || throw(DimensionMismatch("Input number bitwidth to small for array view"))
+    function BitArrayView{V, N}(s::Union{AbstractString, Real}, dims; check::Bool=_DEFAULT_CHECK) where {V, N}
+        check && isa(s, AbstractString) && is_bitstring(s; throw=true)
+        bitlength(s) >= prod(dims) || throw(DimensionMismatch("Input string length to small for array view"))
         N == length(dims) || throw(DimensionMismatch("dims don't match dimension"))
         return new{V, N, typeof(s)}(s, dims)
     end
@@ -67,9 +61,18 @@ bitvecview(str::AbstractString; check=_DEFAULT_CHECK) = BitArrayView(str; check=
 bitvecview(::Type{V}, str::AbstractString; check=_DEFAULT_CHECK) where V =
     BitArrayView{V, 1}(str; check=check)
 
-bitvecview(x::Real) = bitvecview(Bool, x)
-bitvecview(::Type{V}, x::Real) where V = BitArrayView{V, 1}(x)
+bitvecview(x::Real, args...) = bitvecview(Bool, x, args...)
+bitvecview(::Type{V}, x::Real, args...) where V = BitArrayView{V}(x, args...)
 
+"""
+    bitmatview([::Type{V} = Bool], str, [ncols::Integer = isqrt(bitlength(str))]; kwargs...)
+
+Return a view of the bitstring `str` as a matrix, a `BitMatrixView{V, T} <: AbstractMatrix{T}`.
+
+If `ncols` is supplied, the number of rows will be the largest compatible with the length of `str`.
+On construction `str` will be validated as a bitstring. If the keyword arg `check=false` is passed,
+then no such check is made.
+"""
 bitmatview(args...; kwargs...) = bitmatview(Bool, args...; kwargs...)
 
 function bitmatview(::Type{V}, data; kwargs...) where V
@@ -80,6 +83,10 @@ end
 function bitmatview(::Type{V}, data, ncols::Integer; kwargs...) where V
     nrows = div(bitlength(data), ncols)
     return BitArrayView{V, 2}(data, (ncols, nrows); kwargs...)
+end
+
+function bitmatview(::Type{V}, data, dims; kwargs...) where V
+    return BitArrayView{V, 2}(data, dims; kwargs...)
 end
 
 bitarrview(z, dims; kwargs...) = bitarrview(Bool, z, dims; kwargs...)

@@ -1,7 +1,8 @@
 using BitsX: BitsX, min_bits, undigits, bits, bitsizeof, bitsize,
     StaticBitVector
 
-using BitsX: parse_bin, bitstringview, BitStringView
+using BitsX: parse_bin, bitstringview, BitStringView, bitvecview, BitVectorView,
+    bitmatview
 
 import BitsX.BitIntegersX
 
@@ -17,7 +18,7 @@ using Test
     @test codeunit(bs) == UInt8
     @test codeunit(bs, 1) == 0x31
     @test isvalid(bs, 1)
-    @test ! isvalid(bs, 10)
+    @test !isvalid(bs, 10)
     @test length(bs) == length(v)
     @test bs[end] == '1'
     @test bs[[1,3,5]] == "111"
@@ -54,7 +55,27 @@ using Test
     @test tv1 == "1100"
 end
 
+@testset "bitvecview" begin
+    s = "1100"
+    v = Bool[1, 1, 0, 0]
+    bv = bitvecview(s)
+    @test bv == v
+    @test bv isa BitVectorView{Bool, String}
 
+    s1 = "111010011"
+    @test bitmatview(s1) == Bool[1 0 0; 1 1 1; 1 0 1]
+
+    s2 = "111000"
+    @test bitmatview(s2, 2) == Bool[1 1 0; 1 0 0]
+    @test bitmatview(s2, (2, 2)) == Bool[1 1 ; 1 0]
+    @test_throws DimensionMismatch bitmatview(s2, (2, 4))
+
+    n = 5
+    @test length(bitvecview(n)) == 64
+    @test length(bitvecview(Int8(n))) == 8
+    @test length(bitvecview(n, 10)) == 10
+    @test size(bitmatview(UInt16(n))) == (4, 4)
+end
 
 @testset "parse_bin" begin
     @test parse_bin("") === 0x00
