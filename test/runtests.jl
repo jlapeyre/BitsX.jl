@@ -10,7 +10,7 @@ using BitsX: is_one_char, is_zero_char, is_binary_char, binzero, binone, isbinze
     to_binary_char, to_binary_char_code, from_binary_char
 
 using BitsX: bitlength, bitsize, bitsizeof, is_bitstring
-using BitsX: rightmask, leftmask, mask
+using BitsX: rightmask, leftmask, mask, asint, biteachindex, bit, normalize_bitstring
 
 using BitsX: randbitstring, randbitstring!
 
@@ -45,7 +45,6 @@ using Test
     @test mask((10, 11, 12, 13)) === mask(10:13)
     @test mask((10, 11, 12, 13, 60, 61, 62)) === mask((10:13, 60:62))
     @test mask((10, 11, 12, 13, 60, 61, 62)) === mask((10:13, 60, 61, 62))
-    # This should be a bit faster
     @test mask(Base.oneto(20)) === mask(1:20)
 end
 
@@ -254,6 +253,28 @@ end
     # Should succeed
     @test_throws BoundsError parse_bin(UInt8, "0000000001")
     @test parse_bin("10000001") == 129
+end
+
+
+@testset "more bits.jl" begin
+    @test asint(3) === 3
+    @test reinterpret(Float64, asint(3.0)) === 3.0
+    @test asint(reinterpret(Float64, -1)) === -1
+
+    @test bit(0, 1) == 0
+    @test bit(1, 1) == 1
+    @test bit(5, 1) == 1
+    @test bit(4, 1) == 0
+    s = "11001100"
+    @test [bit(s, i) for i in biteachindex(s)] == [1,1,0,0,1,1,0,0]
+    # TODO: masked
+
+    @test normalize_bitstring("") === ""
+    @test normalize_bitstring("1") === "1"
+    @test normalize_bitstring("x") === ""
+    @test normalize_bitstring("0") === "0"
+    @test normalize_bitstring("110011") === "110011"
+    @test normalize_bitstring("11 00 11") === "110011"
 end
 
 @testset "BitsX.jl" begin
