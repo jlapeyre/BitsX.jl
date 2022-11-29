@@ -523,7 +523,7 @@ let
     tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
     for (t, ts) in ((:Int8, (:UInt8, :Int8, :Bool)), tups..., (:Int128, (:UInt128, :Int128)))
         for tp in ts
-            @eval Base.inttype(::Type{$tp}) = $t
+            @eval inttype(::Type{$tp}) = $t
             @eval Base.uinttype(::Type{$tp}) = $(Symbol("U", t))
         end
     end
@@ -584,6 +584,9 @@ julia> bit_string(128; pad = 0)
 
 julia> bit_string(128; pad = 9)
 "010000000"
+
+julia> bit_string(1.0)
+"0011111111110000000000000000000000000000000000000000000000000000"
 ```
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
