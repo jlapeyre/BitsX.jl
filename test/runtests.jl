@@ -1,16 +1,53 @@
 using BitsX: BitsX, min_bits, undigits, bits, bitsizeof, bitsize,
     StaticBitVector
 
+using BitsX: ZeroBased, OneBased
+
 using BitsX: parse_bin, bitstringview, BitStringView, bitvecview, BitVectorView,
     bitmatview
 
 using BitsX: is_one_char, is_zero_char, is_binary_char, binzero, binone, isbinzero, isbinone,
-    to_binary_char, to_binary_char_code
+    to_binary_char, to_binary_char_code, from_binary_char
+
+using BitsX: bitlength, bitsize, bitsizeof, is_bitstring
+using BitsX: rightmask, leftmask, mask
+
+using BitsX: randbitstring, randbitstring!
 
 import BitsX.BitIntegersX
 import LinearAlgebra
 
 using Test
+
+
+@testset "rightmask, leftmask" begin
+    for i in 0:63
+        @test rightmask(i) === UInt(2)^i - 1
+        @test rightmask(OneBased(), i) === UInt(2)^i - 1
+        @test rightmask(ZeroBased(), i - 1) === UInt(2)^i - 1
+        @test leftmask(i+1) === ~rightmask(i)
+        @test leftmask(ZeroBased(), i) === ~rightmask(i)
+    end
+    for i in 0:7
+        @test rightmask(UInt8, i) === UInt8(2^i - 1)
+    end
+    # TODO: desired?
+    for i in (64, 100, 10^3)
+        m = rightmask(i)
+        @test m === typemax(typeof(m))
+    end
+
+    for i in 1:63
+        @test mask(i) == 2^(i-1)
+    end
+
+    @test mask((10, 20, 30)) === mask(10) | mask(20) | mask(30)
+    @test mask((10, 11, 12, 13)) === mask(10:13)
+    @test mask((10, 11, 12, 13, 60, 61, 62)) === mask((10:13, 60:62))
+    @test mask((10, 11, 12, 13, 60, 61, 62)) === mask((10:13, 60, 61, 62))
+    # This should be a bit faster
+    @test mask(Base.oneto(20)) === mask(1:20)
+end
 
 @testset "char, code, zero, one" begin
     @test !is_one_char(1)
@@ -78,7 +115,61 @@ using Test
     end
     @test_throws DomainError to_binary_char_code(0x30)
     @test_throws DomainError to_binary_char_code(0x31)
+
+    @test from_binary_char('0') === false
+    @test from_binary_char('1') === true
+    @test_throws DomainError from_binary_char('a')
+    @test from_binary_char(Int, '0') === 0
+    @test from_binary_char(Int, '1') === 1
 end
+
+@testset "randbitstring" begin
+    n = 10
+    s = randbitstring(n)
+    @test isa(s, String)
+    @test is_bitstring(s)
+    @test length(s) == n
+    @test bitlength(s) == n
+    @test isa(randbitstring(n, (2,)), Vector{String})
+    @test isa(randbitstring(n, (2, 3)), Matrix{String})
+
+    sa = randbitstring(n, (2, 3))
+    @test size(randbitstring!(sa, n)) == (2, 3)
+    @test size(randbitstring!(sa, n + 1)) == (2, 3)
+end
+
+@testset "bitsizeof bitlength bitsize" begin
+    @test bitsizeof(Int) == sizeof(Int) * 8
+    @test bitsizeof(Int8) == 8
+    @test bitsizeof(Int16) == 16
+    @test bitsizeof(UInt16) == 16
+    # TODO: Is this what we want?
+    @test bitsizeof(Char) == 32
+    @test_throws MethodError bitsizeof(1)
+    for T in (String, Vector{Bool}, BigInt, BigFloat)
+        @test_throws MethodError bitsizeof(T)
+    end
+    @test bitsizeof(NTuple{3, Int}) == 3
+
+    for T in (Int, UInt8, BigInt, String, Array)
+        @test_throws MethodError bitlength(T)
+        @test_throws MethodError bitsize(T)
+    end
+    # TODO: test types defined in BitsX
+    ba = [0,1,0,0,1]
+    for bs in ("01001", ba, Bool[ba...], BitVector(ba), bitstringview(ba), Tuple(ba))
+        @test bitlength(bs) == 5
+        @test bitsize(bs) == (5,)
+    end
+    @test bitlength(1) == sizeof(Int) * 8
+    @test bitlength(UInt8(1)) == 8
+    @test bitlength(Int16(1)) == 16
+    @test bitlength(big(1)) == 64
+    @test bitlength(true) == 1
+
+    @test bitlength("zebra") == 5
+end
+
 
 @testset "bitstringview" begin
     v = [1, 0, 1, 0, 1]
@@ -165,16 +256,7 @@ end
     @test parse_bin("10000001") == 129
 end
 
-@testset "bitsizeof" begin
-    @test bitsizeof(Bool) == 1
-    @test bitsizeof(Int64) == 64
-    @test bitsizeof(UInt64) == 64
-    @test bitsizeof(UInt8) == 8
-    @test_throws MethodError bitsizeof(BigInt)
-    @test_throws MethodError bitsizeof(BigFloat)
-end
-
-@testset "Bits.Xjl" begin
+@testset "BitsX.jl" begin
     n = 12345
     @test undigits(digits(n)) == n
     @test undigits(digits(n, base=2), base=2) == n

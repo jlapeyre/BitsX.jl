@@ -12,6 +12,16 @@ Each element of `v` must satifiy either `isone` or `iszero`.
 """
 bitstringview(v) = BitStringView{typeof(v)}(v)
 #bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
+
+"""
+    @bsv ex
+
+Return `bitstringview(ex)`.
+"""
+macro bsv(expr)
+    :(bitstringview($expr))
+end
+
 Base.parent(sv::BitStringView) = sv.data
 Base.ncodeunits(sv::BitStringView) = bitlength(parent(sv))
 
