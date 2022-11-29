@@ -179,7 +179,6 @@ function randbitstring!(rng::Random.AbstractRNG, a::Array, n::Integer)
     return a
 end
 
-
 ###
 ### bitsizeof
 ###
@@ -201,7 +200,6 @@ const _BITS_PER_BYTE = 8
 _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
 _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
 bitsizeof(::Type{Bool}) = 1
-
 
 const MPFR_EXP_BITSIZE = bitsizeof(Clong) # bytes_to_bits(sizeof(Clong))
 
@@ -243,15 +241,16 @@ julia> bitstring(rightmask(UInt8, 3))
 "00000111"
 ```
 """
-rightmask(i) = rightmask(Word, i)
-rightmask(::Type{T}, i::Integer) where T = one(T) << i - one(T)
+@inline rightmask(i) = rightmask(Word, i)
+@inline rightmask(::Type{T}, i::Integer) where T = one(T) << i - one(T)
 
 abstract type IndexBase end
 struct OneBased <: IndexBase end
 struct ZeroBased <: IndexBase  end
 
-rightmask(::IndexBase, args...) = rightmask(args...)
-rightmask(::ZeroBased, ::Type{T}, i::Integer) where T = rightmask(T, i + 1)
+@inline rightmask(::IndexBase, args...) = rightmask(args...)
+@inline rightmask(::ZeroBased, ::Type{T}, i::Integer) where T = rightmask(T, i + 1)
+@inline rightmask(::ZeroBased, i::Integer) = rightmask(i + 1)
 
 """
     leftmask([T=UInt], i)
@@ -267,10 +266,13 @@ julia> bitstring(leftmask(UInt8, 3))
 ```
 """
 leftmask(i) = leftmask(Word, i)
-leftmask(::Type{T}, i::Integer) where T = ~(one(T) << (i-1) - one(T))
+# TODO: tests show efficiency of defining as ~rightmask(i-1), is this ok?
+leftmask(::Type{T}, i::Integer) where T = ~rightmask(i - 1)
+#leftmask(::Type{T}, i::Integer) where T = ~(one(T) << (i-1) - one(T))
 
 leftmask(::IndexBase, args...) = leftmask(args...)
 leftmask(::ZeroBased, ::Type{T}, i::Integer) where T = leftmask(T, i + 1)
+leftmask(::ZeroBased, i::Integer) = leftmask(i + 1)
 
 """
     rangemask([T=UInt], ilo, ihi)
@@ -297,6 +299,7 @@ julia> bitstring(rangemask(UInt8, (1, 5), (4, 8)))
 rangemask(args...) = rangemask(OneBased(), Word, args...)
 rangemask(ib::IndexBase, ::Type{T}, ilo::Integer, ihi::Integer) where T = leftmask(ib, T, ilo) & rightmask(ib, T, ihi)
 rangemask(ib::IndexBase, ::Type{T}, ranges::NTuple{2}...) where T = mapfoldl(x->rangemask(ib, T, x...), |, ranges)
+rangemask(ib::IndexBase, ::Type{T}, ur::UnitRange) where T = rangemask(ib, T, ur.start, ur.stop)
 rangemask(::Type{T}, args...) where T = rangemask(OneBased(), T, args...)
 
 """
@@ -327,15 +330,14 @@ julia> bitstring(mask(UInt16, (1:3, 9, 14:16)))
 "1110000100000111"
 ```
 """
-mask(ib::IndexBase, ::Type{T}, ur::UnitRange) where T = rangemask(ib, T, ur.start, ur.stop)
-#mask(::Type{T}, ur::UnitRange) where T = rangemask(T, ur.start, ur.stop)
+mask(ib::IndexBase, ::Type{T}, ur::UnitRange) where T = rangemask(ib, T, ur)
 # Following method has typical problem. For literal or::OR, it happens at compile time.
 # For or::OR in variable it is 10x slower than the fallback below with `inds`.
 # But, the fallback is slower for literal range, does not happen at compile time.
 # mask(::Type{T}, or::OrdinalRange) where T = mask(T, collect(or))
-mask(::Type{T}, i::Integer) where T = (one(T) << (i-one(T)))
+mask(ib::OneBased, ::Type{T}, i::Integer) where T = (one(T) << (i-one(T)))
 mask(ib::IndexBase, ::Type{T}, inds) where T = mapfoldl(i->mask(ib, T, i), |, inds)
-mask(::Type{T}, r::Base.OneTo) where T = rightmask(T, length(r))
+mask(::OneBased, ::Type{T}, r::Base.OneTo) where T = rightmask(T, length(r))
 mask(arg) = mask(OneBased(), Word, arg)
 mask(::Type{T}, args...) where T = mask(OneBased(), T, args...)
 
@@ -365,6 +367,7 @@ masked(ib::IndexBase, x, args...) = x & mask(ib, typeof(x), args...)
 masked(T::DataType, args...) = throw(MethodError(masked, (T, args...)))
 masked(ib::IndexBase, x::AbstractFloat, args...) = reinterpret(typeof(x), masked(ib, asint(x), args...))
 masked(args...) = masked(OneBased(), args...)
+# TODO: support other types with masked, such as bitstring, BitVector, ...
 
 """
     bit(x::Real, i::Integer)

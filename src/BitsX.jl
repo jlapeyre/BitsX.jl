@@ -41,6 +41,8 @@ export fliporder
 export binzero, binone, isbinzero, isbinone
 export bit_count_ones
 
+export @bsv
+
 const Word = UInt
 
 export SBitArray
