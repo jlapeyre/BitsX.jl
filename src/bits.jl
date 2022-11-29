@@ -523,8 +523,8 @@ let
     tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
     for (t, ts) in ((:Int8, (:UInt8, :Int8, :Bool)), tups..., (:Int128, (:UInt128, :Int128)))
         for tp in ts
-            @eval inttype(::Type{$tp}) = $t
-            @eval uinttype(::Type{$tp}) = $(Symbol("U", t))
+            @eval Base.inttype(::Type{$tp}) = $t
+            @eval Base.uinttype(::Type{$tp}) = $(Symbol("U", t))
         end
     end
 end
