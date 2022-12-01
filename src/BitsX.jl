@@ -28,7 +28,7 @@ export datatype
 export randbitstring, randbitstring!
 
 export mask, masked, leftmask, rightmask, rangemask,
-    asint, bit, bit0, tstbit, tstbit0, unsafe_tstbit, min_bits, min_dits
+    asint, asuint, bit, bit0, tstbit, tstbit0, unsafe_tstbit, min_bits, min_dits
 
 export is_bitstring, bit_string, normalize_bitstring, count_bits, bit_string!
 export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code, to_binary_char
