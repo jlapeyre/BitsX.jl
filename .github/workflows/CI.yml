@@ -20,7 +20,7 @@ jobs:
         version:
           - '1.6'
           - '1.8'
-          - 'nightly'
+#          - 'nightly' failing on recent (Nov 2022) builds
         os:
           - ubuntu-latest
         arch:
