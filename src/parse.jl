@@ -40,6 +40,10 @@ this way, formatting, such as spaces, may be included in the input string.
 """
 parse_bin(s; filter::Bool=false) = parse_bin(_min_uint_type(s), s; filter=filter)
 
+function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: AbstractFloat}
+    return reinterpret(T, parse_bin(Base.uinttype(T), s_or_c; filter=filter))
+end
+
 function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where T # ; filter::Bool=false) where T
     BigInt_better_thresh = 650 # approx.
     if _length_in_UInt8(s_or_c) > BigInt_better_thresh

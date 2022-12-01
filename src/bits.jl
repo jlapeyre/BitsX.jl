@@ -345,6 +345,9 @@ mask(::Type{T}, args...) where T = mask(OneBased(), T, args...)
 asint(x::Integer) = x
 asint(x::AbstractFloat) = reinterpret(Signed, x) # Signed gets all the types we need
 
+asuint(x::Integer) = unsigned(x)
+asuint(x::AbstractFloat) = reinterpret(Unsigned, x) # Signed gets all the types we need
+
 # Taken from Bits.jl
 """
     masked(x, [j::Integer], i::Integer) -> typeof(x)
@@ -672,7 +675,6 @@ end
 
 _is_bitstring(v::AbstractVector{UInt8}) = all(is_binary_char, v)
 _is_bitstring(s::AbstractString) = _is_bitstring(codeunits(s))
-
 
 """
     count_bits(s::AbstractString)
