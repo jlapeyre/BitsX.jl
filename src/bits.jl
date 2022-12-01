@@ -520,7 +520,9 @@ end
 ## Methods are defined in base for floating point types,
 ## and in the package BitIntegers.jl
 let
-    tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
+#   Why did I have Float here? It is already defined. Did we not want to extend the Base functions?
+#    tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n), Symbol(:Float, n))) for n in (16, 32, 64)]
+    tups = [(Symbol(:Int, n), (Symbol(:UInt, n), Symbol(:Int, n))) for n in (16, 32, 64)]
     for (t, ts) in ((:Int8, (:UInt8, :Int8, :Bool)), tups..., (:Int128, (:UInt128, :Int128)))
         for tp in ts
             @eval inttype(::Type{$tp}) = $t
@@ -655,22 +657,22 @@ end
 min_dits(v::Integer) = throw(ErrorException("min_dits: use min_bits for $(typeof(v)) input $v"))
 
 """
-    is_bitstring(bit_str::AbstractString; throw=false)
+    is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}}; throw=false)
 
 Return `true` if all characters in `bit_str` are either `'0'` or `'1'`,
 otherwise `false`.
-If `throw` is `true`, then throw an error rather than returning `false`.
+If `throw` is `true`, then throw an `ArgumentError` rather than returning `false`.
 """
-function is_bitstring(bit_str::AbstractString; throw=false)
-    for c in codeunits(bit_str)
-        if ! is_binary_char(c)
-            throw && Base.throw(
-                DomainError(c, "'$c' is not a bit. Characters must be one of ('0', '1')."))
-            return false
-        end
-    end
-    return true
+function is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}}; throw=false)
+    result = _is_bitstring(bit_str)
+    (throw && !result) && Base.throw(
+        ArgumentError("Argument is not a bit string"))
+    return result
 end
+
+_is_bitstring(v::AbstractVector{UInt8}) = all(is_binary_char, v)
+_is_bitstring(s::AbstractString) = _is_bitstring(codeunits(s))
+
 
 """
     count_bits(s::AbstractString)
@@ -786,11 +788,17 @@ end
 
 ## These are exported by Base.
 
+# Use duck typing. This covers AbstractString, AbstractArray
+Base.bitreverse(s) = reverse(s)
+Base.bitreverse(n::Real) = bitreverse(asint(n))
+
 #@inline bitreverse(x::T) where T = bitreverse(T, x)
 # We could restrict the type, but we don't want to verify that x::Vector{Int} only has 0 and 1
 # The downside, is you can get erroneous wrong output for wrong input
 #bitreverse(v) = reverse(v)
 bitreverse!(v) = reverse!(v)
+
+
 
 ###
 ### bitsize
@@ -819,9 +827,50 @@ biteachindex(A) = bitaxes1(A)
 # biteachindex(A) = (@inline(); bitaxes1(A))
 bitlastindex(A) = last(biteachindex(A))
 
-bit_count_ones(x) = count_ones(x)
+"""
+    bit_count_ones(v)
 
+Count the number of bit values in `v` equal to one.
+"""
+bit_count_ones(x) = count_ones(x)
+bit_count_ones(v::AbstractArray) = count(isone, v)
+
+"""
+    bit_count_ones(s::AbstractString)
+
+Count the number of characters in `s` equal to `'1'`.
+"""
 bit_count_ones(s::AbstractString) = sum(is_one_char, codeunits(s))
 
+"""
+    bit_count_zeros(v)
+
+Count the number of bit values in `v` equal to one.
+"""
+bit_count_zeros(x) = count_zeros(x)
+bit_count_zeros(s::AbstractString) = sum(is_zero_char, codeunits(s))
+
+"""
+    bit_count_zeros(s::AbstractString)
+
+Count the number of characters in `s` equal to `'0'`.
+"""
+bit_count_zeros(v::AbstractArray) = count(iszero, v)
+
+###
+### bitvector
+###
+
+# Does this interface make sense? Should the user just do this: BitVector(bitvecview(s))
+"""
+    bitvector(args...)
+
+Create a `BitVector`. This allows initializing with a bit string.
+Otherwise `args` are passed to `BitVector`.
+
+Unstable API.
+"""
+bitvector(args...) = BitVector(args...)
+bitvector(s::AbstractString) = BitVector(bitvecview(s))
 
 # bitlength(x::AbstractArray{Bool}) = length(x) Not needed
