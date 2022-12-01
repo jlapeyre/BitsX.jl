@@ -125,6 +125,6 @@ Base.String(bs::BitArrayView{<:Any, <:Any, <:AbstractString}) = parent(bs)
 Base.String(bs::BitArrayView{<:Any, <:Any, <:Real}) = String(bitstringview(parent(bs)))
 
 # TODO: do reverse in the wrapper, not the parent object
-for func in (:reverse,)
+for func in (:reverse, :bitreverse)
     @eval Base.$(func)(bs::BitArrayView, args...) = BitArrayView(Base.$(func)(parent(bs)), args...)
 end

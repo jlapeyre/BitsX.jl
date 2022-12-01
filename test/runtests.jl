@@ -9,7 +9,8 @@ using BitsX: parse_bin, bitstringview, BitStringView, bitvecview, BitVectorView,
 using BitsX: is_one_char, is_zero_char, is_binary_char, binzero, binone, isbinzero, isbinone,
     to_binary_char, to_binary_char_code, from_binary_char
 
-using BitsX: bitlength, bitsize, bitsizeof, is_bitstring
+using BitsX: bitlength, bitsize, bitsizeof, is_bitstring, bitvector, count_bits
+using BitsX: bit_count_ones, bit_count_zeros, bitreverse, bitreverse!
 using BitsX: rightmask, leftmask, mask, asint, biteachindex, bit, normalize_bitstring
 
 using BitsX: randbitstring, randbitstring!
@@ -19,6 +20,62 @@ import LinearAlgebra
 
 using Test
 
+@testset "more bits.jl" begin
+    @test asint(3) === 3
+    @test reinterpret(Float64, asint(3.0)) === 3.0
+    @test asint(reinterpret(Float64, -1)) === -1
+
+    @test bit(0, 1) == 0
+    @test bit(1, 1) == 1
+    @test bit(5, 1) == 1
+    @test bit(4, 1) == 0
+    s = "11001100"
+    @test [bit(s, i) for i in biteachindex(s)] == [1,1,0,0,1,1,0,0]
+    # TODO: masked
+
+    @test normalize_bitstring("") === ""
+    @test normalize_bitstring("1") === "1"
+    @test normalize_bitstring("x") === ""
+    @test normalize_bitstring("0") === "0"
+    @test normalize_bitstring("110011") === "110011"
+    @test normalize_bitstring("11 00 11") === "110011"
+
+    @test is_bitstring("110011")
+    @test ! is_bitstring("zebra")
+    @test ! is_bitstring("110 011")
+    @test is_bitstring(codeunits("110011"))
+    @test_throws ArgumentError is_bitstring("110 011"; throw=true)
+    @test count_bits("110011") == 6
+    @test count_bits("1z1e0 b 01r1a") == 6
+
+    for x in (0, 1, 5, 1234)
+        n0 = bit_count_zeros(x)
+        n1 = bit_count_ones(x)
+        br = bitreverse(x)
+        @test n0 + n1 == bitlength(x)
+        s = String(bitstringview(x))
+        n0s = bit_count_zeros(s)
+        n1s = bit_count_ones(s)
+        brs = bitreverse(s)
+        @test n0s == n0
+        @test n1s == n1
+        @test bitstringview(br) == brs
+        v = collect(bitvecview(x))
+        n0v = bit_count_zeros(v)
+        n1v = bit_count_ones(v)
+        brv = bitreverse(v)
+        @test n0v == n0
+        @test n1v == n1
+        @test bitstringview(brv) == brs
+    end
+end
+
+@testset "bitvector" begin
+    v = [1,0,1,0]
+    b1 = bitvector(v)
+    b2 = bitvector("1010")
+    @test b1 == b2
+end
 
 @testset "rightmask, leftmask" begin
     for i in 0:63
@@ -256,26 +313,6 @@ end
 end
 
 
-@testset "more bits.jl" begin
-    @test asint(3) === 3
-    @test reinterpret(Float64, asint(3.0)) === 3.0
-    @test asint(reinterpret(Float64, -1)) === -1
-
-    @test bit(0, 1) == 0
-    @test bit(1, 1) == 1
-    @test bit(5, 1) == 1
-    @test bit(4, 1) == 0
-    s = "11001100"
-    @test [bit(s, i) for i in biteachindex(s)] == [1,1,0,0,1,1,0,0]
-    # TODO: masked
-
-    @test normalize_bitstring("") === ""
-    @test normalize_bitstring("1") === "1"
-    @test normalize_bitstring("x") === ""
-    @test normalize_bitstring("0") === "0"
-    @test normalize_bitstring("110011") === "110011"
-    @test normalize_bitstring("11 00 11") === "110011"
-end
 
 @testset "BitsX.jl" begin
     n = 12345

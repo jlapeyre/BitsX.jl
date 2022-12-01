@@ -58,7 +58,8 @@ end
     end
 end
 
-Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(bitreverse(parent(bv)))
+Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)))
+Base.bitreverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)))
 
 for func in (:reverse, :reverse!)
     @eval Base.$(func)(bv::BitStringView, args...) = bitstringview(Base.$(func)(parent(bv), args...))

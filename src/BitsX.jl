@@ -39,7 +39,8 @@ export BitStringView, bitstringview
 export fliporder
 
 export binzero, binone, isbinzero, isbinone
-export bit_count_ones
+export bit_count_ones, bit_count_zeros
+export bitvector
 
 export @bsv
 
