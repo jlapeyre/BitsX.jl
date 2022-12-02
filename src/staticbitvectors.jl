@@ -105,6 +105,20 @@ struct StaticBitVectorView{T} <: AbstractStaticBitVector{T}
     x::T
 end
 
+# Otherwise fallback is used. This is often only twice as fast as fallback
+function Base.isequal(a::AbstractStaticBitVector, b::AbstractStaticBitVector)
+    return isequal(a.x, b.x) && isequal(length(a), length(b))
+end
+
+function Base.:(==)(a::AbstractStaticBitVector, b::AbstractStaticBitVector)
+    return isequal(a.x, b.x) && isequal(length(a), length(b))
+end
+
+# This hash is not equal to AbstractArray. They won't be considered equal in a Dict
+function Base.hash(a::AbstractStaticBitVector)
+    return hash(a.x, hash(length(a)))
+end
+
 # _count is called by count, sum, etc.
 # TODO: Do similar counting for StaticBitVectorLen
 Base._count(::typeof(identity), B::StaticBitVectorView, ::Colon, init) = init + count_ones(B.x)
@@ -360,7 +374,6 @@ _bits(s::AbstractString, ::Val{false}, ::Type{BitVector}) = BitVector(bitvecview
 # TODO: could save allocation by iterating over good Char's rather than allocating with normalize_bitstring
 # There are a few other uses of this. A function name might be normalize_bitstring_iter.
 _bits(s::AbstractString, ::Val{true}, ::Type{BitVector}) = BitVector(bitvecview(normalize_bitstring(s)))
-
 
 function bits(::Type{T}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T <: Real}
     return _bits(s, _toVal(strip), T, StaticBitVector)
