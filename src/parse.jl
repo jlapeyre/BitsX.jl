@@ -1,7 +1,7 @@
 module ParseBin
 
 using Base: CodeUnits
-using BitsX: is_one_char, is_zero_char
+using BitsX: is_one_char, is_zero_char, inttype
 using ..BitIntegersX: min_uint_type, get_one_bit_masks
 
 export parse_bin
@@ -18,15 +18,15 @@ _length_in_UInt8(s::AbstractString) = ncodeunits(s) # not all AbstractString
 _length_in_UInt8(v::AbstractVector{UInt8}) = length(v)
 
 """
-    parse_bin([::Type{UIntT}], s::Union{AbstractString, AbstractVector{UInt8}}; filter=false)
+    parse_bin([::Type{T}], s::Union{AbstractString, AbstractVector{UInt8}}; filter=false)
 
 Convert an integer coded as a binary string (characters `'1'` and `'0'`) to an unsigned integer.
-The return type is `UIntT`. If the first argument is omitted, then
+The return type is `T`. If the first argument is omitted, then
 the return type is the narrowest suitable unsigned integer type.
 
-The type `UIntT` is named `UInt8`, `UInt16`, etc where the number of bits is a factor of `8`.
-The largest type that is pre-generated from `BitIntegers.jl` is `UInt1024`. If `UIntT` is omitted,
-a type that has not been pre-generated will be created. `parse_bin` is often much faster if `UIntT` is
+The type `T` is typically a bits type `UInt8`, `UInt16`, `Float64`, etc., where the number of bits is a factor of `8`.
+The largest unsigned integer type that is pre-generated from `BitIntegers.jl` is `UInt1024`. If `T` is omitted,
+an type that has not been pre-generated will be created. `parse_bin` is often much faster if `T` is
 supplied.
 
 Leading zeros are included in the calculation of the width of the resulting integer.
@@ -40,8 +40,22 @@ this way, formatting, such as spaces, may be included in the input string.
 """
 parse_bin(s; filter::Bool=false) = parse_bin(_min_uint_type(s), s; filter=filter)
 
-function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: AbstractFloat}
+function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: Union{AbstractFloat, Signed}}
     return reinterpret(T, parse_bin(Base.uinttype(T), s_or_c; filter=filter))
+end
+
+# TODO: Refactor these.
+function parse_bin(::Type{Unsigned},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    parse_bin(s_or_c; filter=filter)
+end
+
+function parse_bin(::Type{Integer},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    parse_bin(s_or_c; filter=filter)
+end
+
+function parse_bin(::Type{Signed},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    x = parse_bin(s_or_c; filter=filter)
+    return reinterpret(inttype(typeof(x)), x)
 end
 
 function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where T # ; filter::Bool=false) where T

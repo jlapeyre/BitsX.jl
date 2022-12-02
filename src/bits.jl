@@ -1,4 +1,9 @@
 const BoolOrVal = Union{Bool, Val{true}, Val{false}}
+
+# Not sure why we have to do this. Forces specialization
+_toVal(x::Bool) = x ? Val(true) : Val(false)
+_toVal(x::Val) = x
+
 # TODO: what do we expect that this supports? Can you index into Generator ? No.
 const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
@@ -874,5 +879,19 @@ Unstable API.
 """
 bitvector(args...) = BitVector(args...)
 bitvector(s::AbstractString) = BitVector(bitvecview(s))
+
+function bitvector(x::Union{Integer, Base.IEEEFloat})
+    _bits = BitArray(undef, 8 * sizeof(x))
+    xi = asint(x)
+    if sizeof(x) <= 8
+        @inbounds _bits.chunks[1] = xi
+    else
+        for i in eachindex(_bits.chunks)
+            @inbounds _bits.chunks[i] = (xi >> (64 * (i - 1)) % UInt64)
+        end
+    end
+    return _bits
+end
+
 
 # bitlength(x::AbstractArray{Bool}) = length(x) Not needed
