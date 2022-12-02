@@ -361,9 +361,6 @@ _bits(s::AbstractString, ::Val{false}, ::Type{BitVector}) = BitVector(bitvecview
 # There are a few other uses of this. A function name might be normalize_bitstring_iter.
 _bits(s::AbstractString, ::Val{true}, ::Type{BitVector}) = BitVector(bitvecview(normalize_bitstring(s)))
 
-# Not sure why we have to do this. Forces specialization
-_toVal(x::Bool) = x ? Val(true) : Val(false)
-_toVal(x::Val) = x
 
 function bits(::Type{T}, s::AbstractString; strip::BoolOrVal=Val(false)) where {T <: Real}
     return _bits(s, _toVal(strip), T, StaticBitVector)

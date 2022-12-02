@@ -75,6 +75,8 @@ end
     b1 = bitvector(v)
     b2 = bitvector("1010")
     @test b1 == b2
+    x = 12345
+    s = bitstring(x)
 end
 
 @testset "rightmask, leftmask" begin
@@ -294,6 +296,10 @@ end
     @test length(bitvecview(Int8(n))) == 8
     @test length(bitvecview(n, 10)) == 10
     @test size(bitmatview(UInt16(n))) == (4, 4)
+
+    for x in (s2, 123)
+        @test bitvecview(x, Val(true)) == bitvecview(bitreverse(x), Val(false))
+    end
 end
 
 @testset "parse_bin" begin
@@ -310,9 +316,17 @@ end
     # Should succeed
     @test_throws BoundsError parse_bin(UInt8, "0000000001")
     @test parse_bin("10000001") == 129
+
+    @test isa(parse_bin(Integer, "1100"), Unsigned)
+    @test parse_bin(Unsigned, "1100") == parse_bin("1100")
+    @test isa(parse_bin(Signed, "1100"), Int8)
+
+    _identity(x) = parse_bin(typeof(x), bitstring(x))
+    for T in (Int, UInt, Int16, Int16, UInt16, Float16, Float32, Float64)
+        x = T(11)
+        @test _identity(x) === x
+    end
 end
-
-
 
 @testset "BitsX.jl" begin
     n = 12345

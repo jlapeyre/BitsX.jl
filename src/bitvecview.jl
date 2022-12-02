@@ -10,29 +10,31 @@ const _DEFAULT_CHECK = true
 View an object of type `T` as an `AbstractArray{V, N}`
 where `V` is the eltype and `N` the number of dimensions.
 """
-struct BitArrayView{V, N, T} <: AbstractArray{V, N}
+struct BitArrayView{V, N, T, ET} <: AbstractArray{V, N}
     s::T
     dims::NTuple{N, Int}
 
     # TODO: could relax restriction on s, and rely on duck typing
-    function BitArrayView{V}(s::Union{AbstractString, Real}, len=bitlength(s); check::Bool=_DEFAULT_CHECK) where V
+    function BitArrayView{V, ET}(s::Union{AbstractString, Real}, len=bitlength(s); check::Bool=_DEFAULT_CHECK) where {V, ET}
         check && isa(s, AbstractString) && is_bitstring(s; throw=true)
         dims = (len,)
-        return new{V, length(dims), typeof(s)}(s, dims)
+        return new{V, length(dims), typeof(s), ET}(s, dims)
     end
 
-    function BitArrayView{V, N}(s::Union{AbstractString, Real}, dims; check::Bool=_DEFAULT_CHECK) where {V, N}
+    function BitArrayView{V, N, ET}(s::Union{AbstractString, Real}, dims; check::Bool=_DEFAULT_CHECK) where {V, N, ET}
         check && isa(s, AbstractString) && is_bitstring(s; throw=true)
         bitlength(s) >= prod(dims) || throw(DimensionMismatch("Input string length to small for array view"))
         N == length(dims) || throw(DimensionMismatch("dims don't match dimension"))
-        return new{V, N, typeof(s)}(s, dims)
+        return new{V, N, typeof(s), ET}(s, dims)
     end
 end
 
 const BitVectorView{V, T} = BitArrayView{V, 1, T}
 const BitMatrixView{V, T} = BitArrayView{V, 2, T}
 
-BitArrayView(s::AbstractString; check=_DEFAULT_CHECK) = BitArrayView{Bool}(s; check=check)
+#BitArrayView(s::AbstractString); check=_DEFAULT_CHECK) = BitArrayView{Bool}(s, Val(ET); check=check)
+BitArrayView(s::AbstractString, ::Val{ET}=Val(ET); check=_DEFAULT_CHECK) where {ET} = BitArrayView{Bool, ET}(s; check=check)
+BitArrayView(s::AbstractString, ET::Bool; check=_DEFAULT_CHECK) = BitArrayView{Bool, ET}(s; check=check)
 
 @inline Base.parent(bv::BitArrayView) = bv.s
 
@@ -57,12 +59,20 @@ you want to do only a few operations.
 To convert `str` to a `Vector{T}` call `collect` or `copy` on the returned view of `str`.
 Likewise `Tuple` and `BitVector` can be used to convert to the corresponding types.
 """
-bitvecview(str::AbstractString; check=_DEFAULT_CHECK) = BitArrayView(str; check=check)
-bitvecview(::Type{V}, str::AbstractString; check=_DEFAULT_CHECK) where V =
-    BitArrayView{V, 1}(str; check=check)
+bitvecview(str::AbstractString, ::Val{ET}=Val(false); check=_DEFAULT_CHECK) where ET = BitArrayView{Bool, 1, ET}(str, (bitlength(str),); check=check)
+bitvecview(str::AbstractString, ET::Bool; check=_DEFAULT_CHECK) = BitArrayView{Bool, 1, ET}(str, (bitlength(str),); check=check)
 
-bitvecview(x::Real, args...) = bitvecview(Bool, x, args...)
-bitvecview(::Type{V}, x::Real, args...) where V = BitArrayView{V}(x, args...)
+#bitvecview(str::AbstractString; check=_DEFAULT_CHECK) = BitArrayView{Bool, 1, false}(str, (bitlength(str),); check=check)
+# No difference in efficiency
+#bitvecview(str::AbstractString; check=_DEFAULT_CHECK) = BitArrayView(str; check=check)
+
+bitvecview(::Type{V}, str::AbstractString, ::Val{ET}=Val(false); check=_DEFAULT_CHECK) where {V, ET} =
+    BitArrayView{V, 1, ET}(str, (bitlength(str),); check=check)
+
+bitvecview(x::Real, et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, bitlength(x), et)
+bitvecview(x::Real, len::Integer=bitlength(x), et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, len, et)
+bitvecview(x::Real, et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, bitlength(x), et)
+bitvecview(::Type{V}, x::Real, len::Integer=bitlength(x), ::Val{ET}=Val(false)) where {V, ET} = BitArrayView{V, 1, ET}(x, (len,))
 
 """
     bitmatview([::Type{V} = Bool], str, [ncols::Integer = isqrt(bitlength(str))]; kwargs...)
@@ -75,35 +85,47 @@ then no such check is made.
 """
 bitmatview(args...; kwargs...) = bitmatview(Bool, args...; kwargs...)
 
-function bitmatview(::Type{V}, data; kwargs...) where V
+function bitmatview(::Type{V}, data, ::Val{ET}=Val(false); kwargs...) where {V, ET}
     n = isqrt(bitlength(data))
-    return BitArrayView{V, 2}(data, (n, n); kwargs...)
+    return BitArrayView{V, 2, ET}(data, (n, n); kwargs...)
 end
 
-function bitmatview(::Type{V}, data, ncols::Integer; kwargs...) where V
+function bitmatview(::Type{V}, data, ncols::Integer, ::Val{ET}=Val(false); kwargs...) where {V, ET}
     nrows = div(bitlength(data), ncols)
-    return BitArrayView{V, 2}(data, (ncols, nrows); kwargs...)
+    return BitArrayView{V, 2, ET}(data, (ncols, nrows); kwargs...)
 end
 
-function bitmatview(::Type{V}, data, dims; kwargs...) where V
-    return BitArrayView{V, 2}(data, dims; kwargs...)
+function bitmatview(::Type{V}, data, dims, ::Val{ET}=Val(false); kwargs...) where {V, ET}
+    return BitArrayView{V, 2, ET}(data, dims; kwargs...)
 end
 
 bitarrview(z, dims; kwargs...) = bitarrview(Bool, z, dims; kwargs...)
-bitarrview(::Type{V}, z, dims; kwargs...) where V = BitArrayView{V, length(dims)}(z, dims; kwargs...)
+bitarrview(::Type{V}, z, dims, ::Val{ET}=Val(ET); kwargs...) where {V, ET} = BitArrayView{V, length(dims), ET}(z, dims; kwargs...)
 
 @inline Base.size(bs::BitArrayView{<:Any, N, V}) where {N, V<:Real} = bs.dims
 @inline Base.size(bs::BitArrayView) = bs.dims # (ncodeunits(parent(bs)),)
 @inline Base.IndexStyle(::BitArrayView) = Base.IndexLinear()
 
-@inline function Base.getindex(bs::BitArrayView{T, <:Any, V}, i::Integer) where {T, V<:AbstractString}
+@inline function Base.getindex(bs::BitArrayView{T, <:Any, V, false}, i::Integer) where {T, V<:AbstractString}
     @boundscheck checkbounds(bs, i)
     @inbounds is_one_char(codeunit(parent(bs), i)) % T
 end
 
-@inline function Base.getindex(bs::BitArrayView{T, <:Any, V}, i::Integer) where {T, V<:Real}
+@inline function Base.getindex(bs::BitArrayView{T, <:Any, V, true}, i::Integer) where {T, V<:AbstractString}
+    ir = bitlength(parent(bs)) - i + 1
+    @boundscheck checkbounds(bs, ir)
+    @inbounds is_one_char(codeunit(parent(bs), ir)) % T
+end
+
+@inline function Base.getindex(bs::BitArrayView{T, <:Any, V, false}, i::Integer) where {T, V<:Real}
     @boundscheck checkbounds(bs, i)
     @inbounds bitgetindex(parent(bs), i) % T
+end
+
+@inline function Base.getindex(bs::BitArrayView{T, <:Any, V, true}, i::Integer) where {T, V<:Real}
+    ir = bitlength(parent(bs)) - i + 1
+    @boundscheck checkbounds(bs, ir)
+    @inbounds bitgetindex(parent(bs), ir) % T
 end
 
 @inline Base.sizeof(s::BitArrayView{V}) where V = length(s) * sizeof(V) # should this always be UInt8 ?

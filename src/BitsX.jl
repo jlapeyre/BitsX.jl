@@ -33,7 +33,7 @@ export mask, masked, leftmask, rightmask, rangemask,
 export is_bitstring, bit_string, normalize_bitstring, count_bits, bit_string!
 export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code, to_binary_char
 
-export parse_bin
+export parse_bin, bitconvert
 export BitArrayView, bitvecview, bitmatview, bitarrview, BitVectorView, BitMatrixView
 export BitStringView, bitstringview
 export fliporder
@@ -59,6 +59,10 @@ using .ParseBin: parse_bin
 include("staticbitvectors.jl")
 include("bitvecview.jl")
 include("bitstringview.jl")
+include("bitconvert.jl")
+
+using .BitConvert: bitconvert
+
 include("sbitvectors.jl")
 
 end # module BitsX
