@@ -503,7 +503,7 @@ unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
 
 Remove all characters (more precisely, code points) from `str` that are not one
 of `'0'` and `'1'`, if such characters exist. Otherwise, return `str`
-unchanged. Non-ASCII characters in `str` may cause incorrect results.
+unchanged.
 """
 function normalize_bitstring(str::AbstractString)
     nbits = count_bits(str)
