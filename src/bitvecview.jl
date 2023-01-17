@@ -42,6 +42,17 @@ BitArrayView(s::AbstractString, ET::Bool; check=_DEFAULT_CHECK) = BitArrayView{B
 # Calls: collect -> copyto! -> unalias -> mightalias -> dataids
 Base.dataids(bv::BitArrayView) = Base.dataids(parent(bv))
 
+
+"""
+    is_little_endian(bv::BitArrayView)
+
+Return `true` if the bits in the representation `bv` of `parent(bv)`, where the latter is
+a bitsttype, have the least significant bit at index `1`.
+
+For other wrapped types, such as `String`, return `true` if the indexing is not reversed.
+"""
+is_little_endian(::BitArrayView{<:Any, <:Any, <:Any, ET}) where ET = ET
+
 """
     bitvecview([::Type{T} = Bool], str::AbstractString; check=true)
 
