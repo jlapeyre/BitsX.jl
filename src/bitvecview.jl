@@ -80,9 +80,8 @@ bitvecview(str::AbstractString, ET::Bool; check=_DEFAULT_CHECK) = BitArrayView{B
 bitvecview(::Type{V}, str::AbstractString, ::Val{ET}=Val(false); check=_DEFAULT_CHECK) where {V, ET} =
     BitArrayView{V, 1, ET}(str, (bitlength(str),); check=check)
 
-bitvecview(x::Real, et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, bitlength(x), et)
+#bitvecview(x::Real, et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, bitlength(x), et)
 bitvecview(x::Real, len::Integer=bitlength(x), et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, len, et)
-bitvecview(x::Real, et::Val{ET}=Val(false)) where ET = bitvecview(Bool, x, bitlength(x), et)
 bitvecview(::Type{V}, x::Real, len::Integer=bitlength(x), ::Val{ET}=Val(false)) where {V, ET} = BitArrayView{V, 1, ET}(x, (len,))
 
 """

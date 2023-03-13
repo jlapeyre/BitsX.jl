@@ -297,9 +297,8 @@ end
     @test length(bitvecview(n, 10)) == 10
     @test size(bitmatview(UInt16(n))) == (4, 4)
 
-    for x in (s2, 123)
-        @test bitvecview(x, Val(true)) == bitvecview(bitreverse(x), Val(false))
-    end
+    @test bitvecview(s2, Val(true)) == bitvecview(bitreverse(s2), Val(false))
+    @test bitvecview(123, 64, Val(true)) == bitvecview(bitreverse(123), 64, Val(false))
 end
 
 @testset "parse_bin" begin
