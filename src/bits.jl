@@ -200,7 +200,7 @@ If the number of indexable bits in an instance of type `T` cannot be computed
 from the type alone, then an error is thrown.
 """
 bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
-bitsizeof(::Type{NTuple{N, <:Integer}}) where {N} = N
+bitsizeof(::Type{<:NTuple{N, <:Integer}}) where {N} = N
 const _BITS_PER_BYTE = 8
 _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
 _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
