@@ -21,8 +21,9 @@ import Random
 export bits, StaticBitVector, StaticBitVector0, StaticBitVectorN, StaticBitVectorView
 export AbstractStaticBitVector
 export bitsizeof, bitlength, bitsize, bitgetindex, biteachindex, bitlastindex
-export undigits, undigits2
-export uint_type, min_uint_type, min_uint_bit_width, min_uint_byte_width
+export undigits
+# TODO: export these from submodule
+# export min_uint_bit_width, min_uint_byte_width, min_uint_type, uint_type
 export OneBased, ZeroBased
 export datatype
 export randbitstring, randbitstring!
@@ -30,7 +31,7 @@ export randbitstring, randbitstring!
 export mask, masked, leftmask, rightmask, rangemask,
     asint, asuint, bit, bit0, tstbit, tstbit0, unsafe_tstbit, min_bits, min_dits
 
-export is_bitstring, bit_string, normalize_bitstring, count_bits, bit_string!
+export is_bitstring, bit_string, normalize_bitstring, count_bits
 export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code, to_binary_char
 
 export parse_bin, bitconvert

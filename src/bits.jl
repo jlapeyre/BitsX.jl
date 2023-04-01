@@ -200,7 +200,7 @@ If the number of indexable bits in an instance of type `T` cannot be computed
 from the type alone, then an error is thrown.
 """
 bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
-bitsizeof(::Type{NTuple{N, T}}) where {N, T <: Integer} = N
+bitsizeof(::Type{NTuple{N, <:Integer}}) where {N} = N
 const _BITS_PER_BYTE = 8
 _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
 _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
@@ -220,6 +220,7 @@ of bits is not encoded in the type, and in fact may vary from instance
 to instance.
 """
 bitlength(x::T) where T = bitsizeof(T)
+bitlength(x::NTuple{N, <:Integer}) where {N} = N
 bitlength(x::BigFloat) =  1 + MPFR_EXP_BITSIZE + precision(x)
 bitlength(x::BigInt) = abs(x.size) * Base.GMP.BITS_PER_LIMB # bitsizeof(Base.GMP.Limb)
 bitlength(v::AbstractArray) = length(v)
@@ -723,6 +724,7 @@ bitgetindex(::Type{<:Any}, v::Tuple, i::Int) = v[i]
 # Hmm. Yes, I do want this.
 bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 bitgetindex(bv::AbstractArray{Bool}, ind::Int) = getindex(bv, ind)
+bitgetindex(bv::AbstractArray{Bool}, ind::Integer) = getindex(bv, ind)
 
 bitgetindex(A::AbstractArray, inds::AbstractArray{<:Int}) = getindex(A, inds)
 bitgetindex(A::AbstractArray, inds::Int...) = getindex(A, inds...)
