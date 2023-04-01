@@ -156,7 +156,12 @@ Base._count(::typeof(identity), B::BitArrayView, ::Colon, init) = init + sum(iso
 Base.String(bs::BitArrayView{<:Any, <:Any, <:AbstractString}) = parent(bs)
 Base.String(bs::BitArrayView{<:Any, <:Any, <:Real}) = String(bitstringview(parent(bs)))
 
+# Disable these. Not the correct thing and not tested.
 # TODO: do reverse in the wrapper, not the parent object
-for func in (:reverse, :bitreverse)
-    @eval Base.$(func)(bs::BitArrayView, args...) = BitArrayView(Base.$(func)(parent(bs)), args...)
-end
+# for func in (:reverse, :bitreverse)
+#     @eval Base.$(func)(bs::BitArrayView, args...) = BitArrayView(Base.$(func)(parent(bs)), args...)
+# end
+
+# for func in (:reverse, :bitreverse)
+#     @eval Base.$(func)(bs::BitVectorView, args...) = BitArrayView(Base.$(func)(parent(bs)), args...)
+# end

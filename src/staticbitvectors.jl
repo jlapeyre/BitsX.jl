@@ -246,7 +246,8 @@ bitlength(::StaticBitVectorN{<:Any, N}) where N = N
 Base.isequal(v::StaticBitVectorN, x) = isequal(x, v.x)
 Base.isequal(v1::StaticBitVectorN, v2::StaticBitVectorN) = isequal(v1.x, v2.x)
 
-Base.convert(::Type{StaticBitVectorN{T,N}}, x) where {T, N} = StaticBitVectorN{T,N}(T(x))
+# Disable this. Causes ambiguities and is not tested.
+# Base.convert(::Type{StaticBitVectorN{T,N}}, x) where {T, N} = StaticBitVectorN{T,N}(T(x))
 Base.convert(::Type{StaticBitVectorN{T,N}}, x::StaticBitVectorN{T,N}) where {T, N} = x
 
 # Try to improve perf by making N inferrable
