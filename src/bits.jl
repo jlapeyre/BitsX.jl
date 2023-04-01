@@ -721,13 +721,13 @@ more efficient.
 #bitgetindex(::Type{T}, v, i::Integer) where T = bitgetindex(T, v, Int(i))
 bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
 bitgetindex(::Type{<:Any}, v::Tuple, i::Int) = v[i]
-# Hmm. Yes, I do want this.
-bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
+# Hmm. Yes, I do want this. But it's not tested :(
+# bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
 bitgetindex(bv::AbstractArray{Bool}, ind::Int) = getindex(bv, ind)
 bitgetindex(bv::AbstractArray{Bool}, ind::Integer) = getindex(bv, ind)
 
 bitgetindex(A::AbstractArray, inds::AbstractArray{<:Int}) = getindex(A, inds)
-bitgetindex(A::AbstractArray, inds::Int...) = getindex(A, inds...)
+bitgetindex(A::AbstractArray, ind::Int, inds::Int...) = getindex(A, ind, inds...)
 # This is really slow. Ruins some kind of inference
 bitgetindex(A::AbstractArray, inds::NTuple{N, <:Integer}) where N = getindex(A, collect(inds))
 

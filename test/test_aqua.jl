@@ -1,6 +1,11 @@
 using BitsX
 using Aqua: Aqua
 
+# TODO: Much to fix here
+# @testset "aqua test ambiguities" begin
+#     Aqua.test_ambiguities([BitsX, Core, Base])
+# end
+
 @testset "aqua unbound_args" begin
     Aqua.test_unbound_args(BitsX)
 end
@@ -8,11 +13,6 @@ end
 @testset "aqua undefined exports" begin
     Aqua.test_undefined_exports(BitsX)
 end
-
-# TODO: Much to fix here
-# @testset "aqua test ambiguities" begin
-#     Aqua.test_ambiguities([BitsX, Core, Base])
-# end
 
 # There is a lot of piracy. All in bitintegers.jl
 # @testset "aqua piracy" begin

@@ -44,6 +44,11 @@ end
     return @inbounds bitstringview(_getindex(sv, v))
 end
 
+@inline function Base.getindex(sv::BitStringView, v::AbstractVector{Bool})
+    @boundscheck checkbounds(sv, v)
+    return @inbounds bitstringview(_getindex(sv, v))
+end
+
 @inline function Base.getindex(sv::BitStringView, v::UnitRange{<:Integer})
     @boundscheck checkbounds(sv, v)
     return @inbounds bitstringview(_getindex(sv, v))

@@ -26,4 +26,3 @@ using Test
 
 include("test_aqua.jl")
 include("test_bitsx.jl")
-
