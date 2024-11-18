@@ -270,6 +270,7 @@ function Base.count_zeros(x::AbstractStaticBitVector)
 end
 
 bit_count_zeros(x::AbstractStaticBitVector) = count_zeros(x)
+bit_count_ones(x::AbstractStaticBitVector) = count_ones(x)
 
 Base.Integer(x::AbstractStaticBitVector) = parent(x)
 
