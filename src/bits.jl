@@ -273,7 +273,7 @@ julia> bitstring(leftmask(UInt8, 3))
 """
 leftmask(i) = leftmask(Word, i)
 # TODO: tests show efficiency of defining as ~rightmask(i-1), is this ok?
-leftmask(::Type{T}, i::Integer) where T = ~rightmask(i - 1)
+leftmask(::Type{T}, i::Integer) where T = ~rightmask(T, i - 1)
 #leftmask(::Type{T}, i::Integer) where T = ~(one(T) << (i-1) - one(T))
 
 leftmask(::IndexBase, args...) = leftmask(args...)

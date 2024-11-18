@@ -58,7 +58,7 @@ end
     s = bitstring(x)
 end
 
-@testset "rightmask, leftmask" begin
+@testset "rightmask, leftmask, rangemask" begin
     for i in 0:63
         @test rightmask(i) === UInt(2)^i - 1
         @test rightmask(OneBased(), i) === UInt(2)^i - 1
@@ -66,6 +66,8 @@ end
         @test leftmask(i+1) === ~rightmask(i)
         @test leftmask(ZeroBased(), i) === ~rightmask(i)
     end
+    @test leftmask(UInt16, 1) isa UInt16
+    @test rangemask(UInt16, 1, 7) isa UInt16
     for i in 0:7
         @test rightmask(UInt8, i) === UInt8(2^i - 1)
     end
