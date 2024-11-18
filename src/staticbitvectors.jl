@@ -11,7 +11,8 @@ Convert the container of binary digits `dts` to a `StaticBitVector`.
 `IntT` is the storage type, i.e., the type that is wrapped. Input is not validated for
 correctness, nor for having length greater than the number of bits in `IntT`. If
 `IntT` is omitted, the smallest type capable of representing `dts` is used.
-However, supplying `IntT` may result in faster conversion.
+However, supplying `IntT` results in faster conversion because the output
+type can be inferred by the compiler.
 
 # Examples
 ```julia-repl
@@ -269,6 +270,7 @@ function Base.count_zeros(x::AbstractStaticBitVector)
     count_zeros(x.x) - num_unused_bits
 end
 
+# These are much faster than fallback methods
 bit_count_zeros(x::AbstractStaticBitVector) = count_zeros(x)
 bit_count_ones(x::AbstractStaticBitVector) = count_ones(x)
 
