@@ -26,10 +26,20 @@ function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
     return bits(T, _digits, n)
 end
 
+function bits(::ZeroBased, _digits::_VEC_LIKE, n::Int=length(_digits))
+    T = BitIntegersX.min_uint_type(n)
+    return bits(ZeroBased(), T, _digits, n)
+end
+
 function bits(::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
 #    return bits(undigits(IntT, _digits; base=2)::IntT, n)
     return StaticBitVector{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
 end
+
+function bits(::ZeroBased, ::Type{IntT}, _digits::_VEC_LIKE, n=length(_digits)) where IntT
+    return StaticBitVector0{IntT}(undigits(IntT, _digits; base=2)::IntT, n)
+end
+
 
 # Copied doc from Bits.jl
 """
@@ -172,6 +182,11 @@ end
 
 StaticBitVector{T}(x::Real, n::Integer) where {T<:Real} = StaticBitVector{T}(T(x), n)
 
+"""
+    StaticBitVector0{T<:Real}
+
+A zero-based indexed bit vector backed by an unsigned integer type.
+"""
 struct StaticBitVector0{T<:Real} <: AbstractStaticBitVectorLen{T}
     x::T
     len::Int
@@ -193,6 +208,7 @@ bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
 
 # TODO: could define ZeroTo. This is done ad hoc around Julia ecosystem
 Base.axes1(v::StaticBitVector0) = 0:(bitlength(v) - 1)
+Base.axes(v::StaticBitVector0) = (Base.axes1(v),)
 
 Base.size(v::AbstractStaticBitVector) = (bitlength(v),)
 
@@ -352,13 +368,14 @@ Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
 """
     bits([T], s::AbstractString)
 
-Convert the string `s` representing a binary number to a `StaticBitVector`. This
-method can be used to convert the string representation of
-an `b::StaticBitVector` back to `b`. So, it behaves like `Base.parse(::Int, x)`
-in that the bits in the string are in the same order as the bits in `b`.
+Convert the string `s` representing a binary number to a `StaticBitVector`. This method
+can be used to convert the string representation of an `b::StaticBitVector` back to
+`b`. So, it behaves like `Base.parse(::Int, x)` in that the bits in the string are in the
+same order as the bits in `b`.
 
-If `T` is not specified, the smallest unsigned integer type capable of representing `s`
-will be used.
+`T` should be an unsigned integer type: `UInt8`, `UInt256`, etc.  If `T` is not specified,
+the smallest unsigned integer type capable of representing `s` will be used. If `T` is not
+specified, the compiler cannot infer the output type which degrades performance.
 
 Spaces, and the characters '>', '<' are stripped from `s` if `strip` is `true`.
 

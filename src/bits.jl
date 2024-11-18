@@ -602,7 +602,7 @@ julia> bit_string(1.0)
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
     isnothing(pad) && return bitstring(x)
-    return string(reinterpret(uinttype(T), x); pad=pad, base=2)
+    return string(reinterpret(Base.uinttype(T), x); pad=pad, base=2)
 end
 
 bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
