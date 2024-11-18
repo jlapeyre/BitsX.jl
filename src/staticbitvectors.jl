@@ -260,9 +260,16 @@ function _setindex!(
 end
 
 const _int_types = ((Symbol(pref, :Int, n) for n in (8, 16, 32, 64, 128) for pref in ("", "U"))...,)
-for T in (_int_types..., :BigInt, :count_ones, :count_zeros)
+for T in (_int_types..., :BigInt, :count_ones)
     @eval (Base.$T)(x::AbstractStaticBitVector) = ($T)(x.x)
 end
+
+function Base.count_zeros(x::AbstractStaticBitVector)
+    num_unused_bits = (bitlength(x.x) - bitlength(x)) # unused are zeroed
+    count_zeros(x.x) - num_unused_bits
+end
+
+bit_count_zeros(x::AbstractStaticBitVector) = count_zeros(x)
 
 Base.Integer(x::AbstractStaticBitVector) = parent(x)
 
