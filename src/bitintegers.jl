@@ -27,7 +27,7 @@
 module BitIntegers
 
 import Base: &, *, +, -, <, <<, <=, ==, >>, >>>, |, ~, AbstractFloat, add_with_overflow,
-             bitstring, bswap, checked_abs, count_ones, div, flipsign, isodd, leading_zeros,
+             bitstring, bswap, checked_abs, count_ones, div, flipsign, isodd, iseven, leading_zeros,
              mod, mul_with_overflow, ndigits0zpb, peek, promote_rule, read, rem, signed,
              sub_with_overflow, trailing_zeros, typemax, typemin, unsigned, write, xor
 
@@ -46,10 +46,16 @@ using Core: bitcast, checked_trunc_sint, checked_trunc_uint, sext_int,
 import Random: rand, Sampler
 using Random: AbstractRNG, Repetition, SamplerType, LessThan, Masked
 
+export @define_integers
+
 if VERSION >= v"1.4.0-DEV.114"
     check_top_bit(::Type{T}, x) where {T} = Core.check_top_bit(T, x)
 else
     check_top_bit(::Type{T}, x) where {T} = Core.check_top_bit(x)
+end
+
+if VERSION >= v"1.5"
+    import Base: bitrotate
 end
 
 
@@ -224,11 +230,11 @@ end
 @generated function _rem(x::Union{UBI,Bool}, ::Type{to}) where {to<:UBI}
     from = x
     to === from && return :x # this replaces Base's method for BBI
-    if to.size < from.size
+    if sizeof(to) < sizeof(from)
         :(trunc_int(to, x))
     elseif from === Bool
         :(convert(to, x))
-    elseif from.size < to.size
+    elseif sizeof(from) < sizeof(to)
         if from <: Signed
             :(sext_int(to, x))
         else
@@ -243,14 +249,23 @@ rem(x::Union{UBI,Bool}, ::Type{to}) where {to<:XBI} = _rem(x, to)
 rem(x::XBI, ::Type{to}) where {to<:UBI} = _rem(x, to)
 # to disambiguate
 rem(x::XBI, ::Type{to}) where {to<:XBI} = _rem(x, to)
+# to not let corresponding Base method (`T <: Integer`) take over (which errors)
+rem(x::T, ::Type{T}) where {T<:XBI} = x
 
 @generated function promote_rule(::Type{X}, ::Type{Y}) where {X<:XBI,Y<:UBI}
-    if X.size > Y.size
+    if sizeof(X) > sizeof(Y)
         X
-    elseif X.size == Y.size
-        X <: Unsigned ?
-            X :
+    elseif sizeof(X) == sizeof(Y)
+        if X <: Unsigned && Y <: Signed
+            X
+        elseif X <: Signed && Y <: Unsigned
             Y
+        elseif Y <: XBI
+            Base.Bottom # user needs to define its own rule
+        else
+            # custom integers win
+            X
+        end
     else
         Y
     end
@@ -343,8 +358,8 @@ const SHIFT_SPLIT_NBITS = 64
 
 @inline @generated function shift_call(sh_fun::Function, x::I, y::UBU) where {I<:XBI}
     nbits = 8 * sizeof(I)
-    # performance issue does not affect integers with no more than 128 bits
-#    nbits <= 128 && return :(sh_fun(x, y))
+    # check that no Integer < 128 bit in size went into this function
+    @assert nbits > 128
     split = SHIFT_SPLIT_NBITS
     mask = split - 1
     quote
@@ -356,10 +371,11 @@ const SHIFT_SPLIT_NBITS = 64
     end
 end
 
->>( x::XBS, y::UBU) = shift_call(ashr_int, x, y)
->>( x::XBU, y::UBU) = shift_call(lshr_int, x, y)
->>>(x::XBI, y::UBU) = shift_call(lshr_int, x, y)
-<<( x::XBI, y::UBU) = shift_call(shl_int, x, y)
+# performance issue does not affect integers with no more than 128 bits
+>>( x::XBS, y::UBU) = 8sizeof(typeof(x)) > 128 ? shift_call(ashr_int, x, y) : ashr_int(x, y)
+>>( x::XBU, y::UBU) = 8sizeof(typeof(x)) > 128 ? shift_call(lshr_int, x, y) : lshr_int(x, y)
+>>>(x::XBI, y::UBU) = 8sizeof(typeof(x)) > 128 ? shift_call(lshr_int, x, y) : lshr_int(x, y)
+<<( x::XBI, y::UBU) = 8sizeof(typeof(x)) > 128 ? shift_call(shl_int, x, y) : shl_int(x, y)
 
 >>( x::BBS, y::XBU) = ashr_int(x, y)
 >>( x::BBU, y::XBU) = lshr_int(x, y)
@@ -370,17 +386,35 @@ end
 @inline <<( x::UBI, y::Int) = 0 <= y ? x << unsigned(y) :  x >> unsigned(-y)
 @inline >>>(x::UBI, y::Int) = 0 <= y ? x >>> unsigned(y) : x << unsigned(-y)
 
+function bitrotate(x::T, k::Integer) where {T<:XBI}
+    l = (sizeof(T) << 3) % UInt
+    k::UInt = mod(k, l)
+    (x << k) | (x >>> (l-k))
+end
+
 count_ones(    x::XBI) = Int(ctpop_int(x))
 leading_zeros( x::XBI) = Int(ctlz_int(x))
 trailing_zeros(x::XBI) = Int(cttz_int(x))
 
 function bswap(x::XBI)
-    if VERSION < v"1.6" && sizeof(x) % 2 != 0
+    if isodd(sizeof(x))
         # llvm instruction is invalid
-        error("unimplemented")
+        bswap_simple(x)
     else
         bswap_int(x)
     end
+end
+
+# llvm is clever enough to transform that into `bswap` of the input truncated to the correct
+# size (8 bits less), followed by a "funnel shift left" `fshl`
+function bswap_simple(x::XBI)
+    y = zero(x)
+    for _ = 1:sizeof(x)
+        y <<= 8
+        y |= x % UInt8
+        x >>>= 8
+    end
+    y
 end
 
 flipsign(x::T, y::T) where {T<:XBS} = flipsign_int(x, y)
@@ -388,8 +422,9 @@ flipsign(x::T, y::T) where {T<:XBS} = flipsign_int(x, y)
 # this doesn't catch flipsign(x::BBS, y::BBS), which is more specific in Base
 flipsign(x::UBS, y::UBS) = flipsign_int(promote(x, y)...) % typeof(x)
 
-# Cheaper isodd, to avoid BigInt.  NOTE: Base.iseven is defined in terms of isodd.
-isodd(a::XBI) = isodd(a % Int)  # only depends on the final bit! :)
+# Cheaper isodd/iseven, to avoid BigInt: it only depends on the final bit! :)
+isodd(a::XBI) = isodd(a % Int)
+iseven(a::XBI) = iseven(a % Int)
 
 
 # * arithmetic operations
@@ -407,11 +442,15 @@ rem(x::Unsigned, y::XBS) = rem(x, unsigned(abs(y)))
 
 mod(x::XBS, y::Unsigned) = rem(y + unsigned(rem(x, y)), y)
 
-# these operations fail LLVM for bigger types than UInt128
-div(x::T, y::T, ::typeof(RoundToZero)) where {T<:XBS} = sizeof(T) > 16 ? T(div(big(x), big(y))) : checked_sdiv_int(x, y)
-rem(x::T, y::T) where {T<:XBS} = sizeof(T) > 16 ? T(rem(big(x), big(y))) : checked_srem_int(x, y)
-div(x::T, y::T, ::typeof(RoundToZero)) where {T<:XBU} = sizeof(T) > 16 ? T(div(big(x), big(y))) : checked_udiv_int(x, y)
-rem(x::T, y::T) where {T<:XBU} = sizeof(T) > 16 ? T(rem(big(x), big(y))) : checked_urem_int(x, y)
+# these operations fail LLVM for bigger types than UInt128 on Julia versions < 1.11
+div(x::T, y::T, ::typeof(RoundToZero)) where {T<:XBS} =
+    (sizeof(T) > 16 && VERSION < v"1.11-") ? T(div(big(x), big(y))) : checked_sdiv_int(x, y)
+rem(x::T, y::T) where {T<:XBS} =
+    (sizeof(T) > 16 && VERSION < v"1.11-") ? T(rem(big(x), big(y))) : checked_srem_int(x, y)
+div(x::T, y::T, ::typeof(RoundToZero)) where {T<:XBU} =
+    (sizeof(T) > 16 && VERSION < v"1.11-") ? T(div(big(x), big(y))) : checked_udiv_int(x, y)
+rem(x::T, y::T) where {T<:XBU} =
+    (sizeof(T) > 16 && VERSION < v"1.11-") ? T(rem(big(x), big(y))) : checked_urem_int(x, y)
 
 # Compatibility fallbacks for the above definitions
 if VERSION < v"1.4.0-DEV.208"
@@ -567,7 +606,7 @@ struct SamplerRangeFast{U<:XBU,T<:XBI} <: Sampler{T}
     mask::U   # mask generated values before threshold rejection
 end
 
-SamplerRangeFast(r::AbstractUnitRange{T}) where T<:BitInteger =
+SamplerRangeFast(r::AbstractUnitRange{T}) where T<:XBI =
     SamplerRangeFast(r, uinttype(T))
 
 function SamplerRangeFast(r::AbstractUnitRange{T}, ::Type{U}) where {T,U}
@@ -583,4 +622,3 @@ rand(rng::AbstractRNG, sp::SamplerRangeFast{<:XBI,T}) where {T} =
 
 
 end # module
-
