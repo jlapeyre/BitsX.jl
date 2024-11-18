@@ -140,7 +140,6 @@ Return `bv` as a `String` of only  `'0'` and `'1'`.
 """
 Base.bitstring(bv::AbstractStaticBitVectorLen) = string(parent(bv); base=2)
 
-
 Base.:(>>)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x >> i, length(x))
 Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
 
@@ -148,13 +147,14 @@ Base.:(<<)(x::T, i) where T<:AbstractStaticBitVectorLen = T(x.x << i, length(x))
 # Why is this one restricted to AbstractStaticBitVectorLen ?
 # Whey not use it for all AbstractStaticBitVector ?
 # Lack of tests.
-@inline function Base.iterate(bv::AbstractStaticBitVectorLen, i::Int=1)
-    if (i % UInt) - 1 < length(bv)
-        (@inbounds bv[i], i + 1)
-    else
-        nothing
-    end
-end
+# This is slower in fact than more generic method below
+# @inline function Base.iterate(bv::AbstractStaticBitVectorLen, i::Int=1)
+#     if (i % UInt) - 1 < length(bv)
+#         (@inbounds bv[i], i + 1)
+#     else
+#         nothing
+#     end
+# end
 
 function Base.iterate(bv::AbstractStaticBitVector, i::Int=0)
     i >= length(bv) && return nothing
