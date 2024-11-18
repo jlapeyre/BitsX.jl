@@ -4,14 +4,16 @@ authors = ["John Lapeyre <jlapeyre@users.noreply.github.com> and contributors"]
 version = "0.3.0"
 
 [deps]
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-julia = "1.6"
+Aqua = ">= 0"
+BitIntegers = "0.3.2"
+JET = ">= 0"
 Random = ">= 0"
 Test = ">= 0"
-Aqua = ">= 0"
-JET = ">= 0"
+julia = "1.6"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
