@@ -31,6 +31,7 @@ end
     Aqua.test_deps_compat(BitsX)
 end
 
-@testset "aqua project toml formatting" begin
-    Aqua.test_project_toml_formatting(BitsX)
-end
+# This was removed from Aqua, I think
+# @testset "aqua project toml formatting" begin
+#     Aqua.test_project_toml_formatting(BitsX)
+# end
