@@ -260,6 +260,12 @@ end
 
     tv1 = bitstringview(BitVector(t))
     @test tv1 == "1100"
+
+    bv = bitstringview(5, 4)
+    @test length(bv) == 4
+    @test String(bv) == "0101"
+    # Get "0000" below
+    @test_broken String(bv[1:4]) == "0101"
 end
 
 @testset "bitvecview" begin
