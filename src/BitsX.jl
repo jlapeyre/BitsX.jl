@@ -45,6 +45,11 @@ export bitvector
 
 export @bsv
 
+"""
+    const Word = UInt
+
+The default data type used for bit vectors and views.
+"""
 const Word = UInt
 
 export SBitArray

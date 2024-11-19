@@ -296,6 +296,7 @@ for op in (:xor, :(&), :(|), :(+), :(-), :(*)) # it is actually useful sometimes
     @eval (Base.$op)(x::AbstractStaticBitVectorLen{T}, y::Real) where T = bits(($op)(x.x, T(y)), bitlength(x))
     @eval (Base.$op)(x::StaticBitVectorView{T}, y::Real) where T = bits(($op)(x.x, T(y)))
     @eval (Base.$op)(y::Real, x::StaticBitVectorView{T}) where T = bits(($op)(x, y))
+    @eval (Base.$op)(y::StaticBitVectorView{T}, x::StaticBitVectorView{T}) where T = bits(($op)(x.x, y.x))
     @eval (Base.$op)(y::Real, x::AbstractStaticBitVectorLen{T}) where T = bits(($op)(x, y))
     @eval (Base.$op)(y::AbstractStaticBitVectorLen, x::AbstractStaticBitVectorLen) =
         (length(x) == length(y) || throw(DimensionMismatch()); bits(($op)(x.x, y.x), length(x)))
