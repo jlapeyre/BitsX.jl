@@ -700,14 +700,19 @@ count_bits(v::AbstractVector{UInt8}) = count(is_binary_char, v)
 ###
 
 """
-    bitgetindex(::Type{OT}=T, x::T, bitinds)
+    bitgetindex(::Type{OT}=T, x::T, bitinds)::Bool
 
 Return the sub-collection of the bits in `x` specified by `bitinds`.
 The return type is `OT` which defaults to the input type.
 
+The leftmost bit has index `1`. Compare to `bits(x, bitinds)` for which
+the rightmost bit has index `1`.
+
 For example, for bitstring `x::String` this is equivalent to `x[bitinds]`, but is
 more efficient.
 """
+function bitgetindex end
+
 @inline bitgetindex(x::T, bitind::Integer) where T = bitgetindex(T, x, bitind)
 # Disabled this one
 
@@ -723,8 +728,17 @@ bitgetindex(::Type{T}, v::AbstractArray, i::Int) where T = v[i] % T
 bitgetindex(::Type{<:Any}, v::Tuple, i::Int) = v[i]
 # Hmm. Yes, I do want this. But it's not tested :(
 # bitgetindex(bv::AbstractArray{Bool}, inds...) = getindex(bv, inds...)
-bitgetindex(bv::AbstractArray{Bool}, ind::Int) = getindex(bv, ind)
+
+"""
+    bitgetindex(bv::AbstractArray{Bool}, ind::Integer)
+
+Return `bv[ind]`.
+"""
 bitgetindex(bv::AbstractArray{Bool}, ind::Integer) = getindex(bv, ind)
+
+# Method required for dispatch disambiguation
+bitgetindex(bv::AbstractArray{Bool}, ind::Int) = getindex(bv, ind)
+
 
 bitgetindex(A::AbstractArray, inds::AbstractArray{<:Int}) = getindex(A, inds)
 bitgetindex(A::AbstractArray, ind::Int, inds::Int...) = getindex(A, ind, inds...)

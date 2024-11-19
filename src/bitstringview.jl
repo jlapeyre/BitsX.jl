@@ -1,5 +1,21 @@
+# TODO: length and field `len` is working correctly everywhere.
 struct BitStringView{AT} <: AbstractString
     data::AT
+    len::Int
+end
+
+function Base.show(bs::BitStringView)
+    Base.show(stdout, bs)
+end
+function Base.show(io::IO, bs::BitStringView)
+    print(io, '"')
+    # `for c in bs` iterates bitlength of bs.data times
+    # Ignores `bs.len`. I don't know why. So there is
+    # still a bug to find. But this eliminates it in printing here.
+    for i in eachindex(bs)
+        print(bs[i])
+    end
+    print(io, '"')
 end
 
 """
@@ -10,7 +26,15 @@ Each element of `v` must satifiy either `isone` or `iszero`.
 
 `String(bitstringview(v))` converts `v` to a `String.
 """
-bitstringview(v) = BitStringView{typeof(v)}(v)
+function bitstringview(v, pad::Integer=bitlength(v))
+    if iszero(pad)
+        pad1 = min_bits(v)
+    else
+        pad1 = Int(pad)
+    end
+    BitStringView{typeof(v)}(v, pad1)
+end
+
 #bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
 
 """
@@ -23,16 +47,23 @@ macro bsv(expr)
 end
 
 Base.parent(sv::BitStringView) = sv.data
-Base.ncodeunits(sv::BitStringView) = bitlength(parent(sv))
+Base.ncodeunits(sv::BitStringView) = sv.len # bitlength(parent(sv))
 
-_getindex(sv, i) = bitgetindex(parent(sv), i)
+function _getindex(sv, i::Integer)
+    bdiff = bitlength(sv.data) - length(sv)
+    bitgetindex(parent(sv), i + bdiff)
+end
+
+function _getindex(sv, inds)
+    bitgetindex(parent(sv), inds)
+end
 
 # Called by sizeof, for example
 Base.codeunit(sv::BitStringView) = UInt8
 Base.codeunit(sv::BitStringView, i::Integer) = to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
 
 Base.isvalid(sv::BitStringView, i::Integer) = in(i, bitaxes1(parent(sv)))
-Base.length(sv::BitStringView) = bitlength(parent(sv))
+Base.length(sv::BitStringView) = sv.len # bitlength(parent(sv))
 
 function Base.getindex(sv::BitStringView, i::Integer)
     @boundscheck checkbounds(sv, i)
@@ -41,17 +72,17 @@ end
 
 @inline function Base.getindex(sv::BitStringView, v::AbstractVector{<:Integer})
     @boundscheck checkbounds(sv, v)
-    return @inbounds bitstringview(_getindex(sv, v))
+    return @inbounds BitStringView(_getindex(sv, v), length(v))
 end
 
 @inline function Base.getindex(sv::BitStringView, v::AbstractVector{Bool})
     @boundscheck checkbounds(sv, v)
-    return @inbounds bitstringview(_getindex(sv, v))
+    return @inbounds bitstringview(_getindex(sv, v), length(v))
 end
 
 @inline function Base.getindex(sv::BitStringView, v::UnitRange{<:Integer})
     @boundscheck checkbounds(sv, v)
-    return @inbounds bitstringview(_getindex(sv, v))
+    return @inbounds bitstringview(_getindex(sv, v), length(v))
 end
 
 # Warning! non-"1 based vectors" might fail here
@@ -63,11 +94,11 @@ end
     end
 end
 
-Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)))
-Base.bitreverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)))
+Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)), length(bv))
+Base.bitreverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)), length(bv))
 
 for func in (:reverse, :reverse!)
-    @eval Base.$(func)(bv::BitStringView, args...) = bitstringview(Base.$(func)(parent(bv), args...))
+    @eval Base.$(func)(bv::BitStringView, args...) = bitstringview(Base.$(func)(parent(bv), args...), length(bv))
 end
 
 # wtf? needed to resolve ambiguous convert
