@@ -215,10 +215,10 @@ end
 
 
 @testset "bitstringview" begin
-    v = [1, 0, 1, 0, 1]
+    v = [1, 0, 1, 0, 0]
     bs = bitstringview(v)
     @test bs isa BitStringView
-    @test bs == "10101"
+    @test bs == "10100"
     @test parent(bs) == v
     @test ncodeunits(bs) == length(v)
     @test codeunit(bs) == UInt8
@@ -226,8 +226,9 @@ end
     @test isvalid(bs, 1)
     @test !isvalid(bs, 10)
     @test length(bs) == length(v)
-    @test bs[end] == '1'
-    @test bs[[1,3,5]] == "111"
+    @test bs[end] == '0'
+    @test bs[end-1] == '0'
+    @test bs[[1,3,5]] == "110"
     sbs = String(bs)
     @test sbs isa String
     @test [x for x in bs] == [x for x in sbs]
