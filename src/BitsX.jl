@@ -36,7 +36,9 @@ export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_ch
 
 export parse_bin, bitconvert
 export BitArrayView, bitvecview, bitmatview, bitarrview, BitVectorView, BitMatrixView
+
 export BitStringView, bitstringview
+
 export fliporder
 
 export binzero, binone, isbinzero, isbinone
@@ -63,8 +65,9 @@ using .ParseBin: parse_bin
 include("staticbitvectors.jl")
 include("bitvecview.jl")
 include("bitstringview.jl")
-include("bitconvert.jl")
+using .BitStringViews: bitstringview, BitStringView, @bsv
 
+include("bitconvert.jl")
 using .BitConvert: bitconvert
 
 include("sbitvectors.jl")
