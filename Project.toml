@@ -9,7 +9,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
 Aqua = ">= 0"
-BitIntegers = "0.3.2"
+BitIntegers = ">=0.3"
 JET = ">= 0"
 Random = ">= 0"
 Test = ">= 0"
