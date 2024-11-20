@@ -1,4 +1,12 @@
+module BitStringViews
+
+import ..BitsX
+
+# Maybe @bsv should be removed, or have a different name
+export bitstringview, BitStringView, @bsv
+
 # TODO: length and field `len` is working correctly everywhere.
+
 struct BitStringView{AT} <: AbstractString
     data::AT
     len::Int
@@ -26,9 +34,9 @@ Each element of `v` must satifiy either `isone` or `iszero`.
 
 `String(bitstringview(v))` converts `v` to a `String.
 """
-function bitstringview(v, pad::Integer=bitlength(v))
+function bitstringview(v, pad::Integer=BitsX.bitlength(v))
     if iszero(pad)
-        pad1 = min_bits(v)
+        pad1 = BitsX.min_bits(v)
     else
         pad1 = Int(pad)
     end
@@ -47,27 +55,27 @@ macro bsv(expr)
 end
 
 Base.parent(sv::BitStringView) = sv.data
-Base.ncodeunits(sv::BitStringView) = sv.len # bitlength(parent(sv))
+Base.ncodeunits(sv::BitStringView) = sv.len # BitsX.bitlength(parent(sv))
 
 function _getindex(sv, i::Integer)
-    bdiff = bitlength(sv.data) - length(sv)
-    bitgetindex(parent(sv), i + bdiff)
+    bdiff = BitsX.bitlength(sv.data) - length(sv)
+    BitsX.bitgetindex(parent(sv), i + bdiff)
 end
 
 function _getindex(sv, inds)
-    bitgetindex(parent(sv), inds)
+    BitsX.bitgetindex(parent(sv), inds)
 end
 
 # Called by sizeof, for example
 Base.codeunit(sv::BitStringView) = UInt8
-Base.codeunit(sv::BitStringView, i::Integer) = to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
+Base.codeunit(sv::BitStringView, i::Integer) = BitsX.to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
 
-Base.isvalid(sv::BitStringView, i::Integer) = in(i, bitaxes1(parent(sv)))
+Base.isvalid(sv::BitStringView, i::Integer) = in(i, BitsX.bitaxes1(parent(sv)))
 Base.length(sv::BitStringView) = sv.len # bitlength(parent(sv))
 
 function Base.getindex(sv::BitStringView, i::Integer)
     @boundscheck checkbounds(sv, i)
-    @inbounds to_binary_char(_getindex(sv, i))
+    @inbounds BitsX.to_binary_char(_getindex(sv, i))
 end
 
 @inline function Base.getindex(sv::BitStringView, v::AbstractVector{<:Integer})
@@ -87,7 +95,7 @@ end
 
 # Warning! non-"1 based vectors" might fail here
 @inline function Base.iterate(bv::BitStringView, i::Int=firstindex(parent(bv)))
-    if (i % UInt) - 1 < bitlastindex(parent(bv))
+    if (i % UInt) - 1 < BitsX.bitlastindex(parent(bv))
         (@inbounds bv[i], i + 1)
     else
         nothing
@@ -110,3 +118,5 @@ Base.convert(::Type{BitsX.StaticBitVectorView{T}}, x::BitsX.StaticBitVectorView{
 Base._str_sizehint(b::BitStringView) = sizeof(b)
 
 Base.String(bs::BitStringView) = String(copyto!(Base.StringVector(length(bs)), codeunits(bs)))
+
+end # module BitStringViews
