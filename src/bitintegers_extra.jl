@@ -6,9 +6,6 @@ module BitIntegersX
 
 using BitIntegers: BitIntegers, UInt256, UInt512, UInt1024
 
-# Previously vendored
-#using ..BitIntegers: BitIntegers, UInt256, UInt512, UInt1024
-
 const _UINT_TYPES = Dict{Int, DataType}()
 
 for n in (8, 16, 32, 64, 128, 256, 512, 1024)
