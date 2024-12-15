@@ -265,6 +265,9 @@ end
     @test String(bv) == "0101"
     # Get "0000" below
     @test_broken String(bv[1:4]) == "0101"
+
+    # Gives "00000000" instead
+    @test_broken reverse(bitstringview(UInt(1) << 8 - 1, 8)) == "11111111"
 end
 
 @testset "bitvecview" begin

@@ -102,7 +102,12 @@ end
     end
 end
 
-Base.reverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)), length(bv))
+function Base.reverse(bv::BitStringView{T}) where {T <: Integer}
+    rev = Base.bitreverse(parent(bv)) >> (8 * sizeof(T) - length(bv))
+    bitstringview(rev, length(bv))
+end
+
+
 Base.bitreverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)), length(bv))
 
 for func in (:reverse, :reverse!)
