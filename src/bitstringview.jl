@@ -112,10 +112,13 @@ end
 # wtf? needed to resolve ambiguous convert
 Base.convert(::Type{BitsX.StaticBitVectorView{T}}, x::BitsX.StaticBitVectorView{T}) where T = x
 
+# Removed following line because it causes a several second hang in the REPL after loading this package
+# and pressing any key.
+#
 # This allows fewer allocations and higher perf in print_to_string
 # Makes String(x) twice as fast. But still not as fast as using collect, or the
 # even faster method below.
-Base._str_sizehint(b::BitStringView) = sizeof(b)
+# Base._str_sizehint(b::BitStringView) = sizeof(b)
 
 Base.String(bs::BitStringView) = String(copyto!(Base.StringVector(length(bs)), codeunits(bs)))
 
