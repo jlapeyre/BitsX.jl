@@ -232,6 +232,17 @@ end
     @test sbs isa String
     @test [x for x in bs] == [x for x in sbs]
     @test reverse(bitstringview([1,1,0,0])) == "0011"
+    rev1 = reverse(bitstringview(UInt(1) << 4 - 1, 8))
+    @test String(rev1) == "11110000"
+    @test rev1 == "11110000"
+
+    bs0 = bitstringview(UInt8(1) << 8 - UInt8(1))
+    @test bs0 == "11111111"
+    @test cmp(bs0, "11111111") == 0
+
+    bs1 = bitstringview(UInt64(1) << 8 - UInt64(1), 8)
+    @test bs1 == "11111111"
+    @test cmp(bs1, "11111111") == 0
 
     n = UInt64(1000)
     bs1 = bitstringview(n)
@@ -266,8 +277,6 @@ end
     # Get "0000" below
     @test_broken String(bv[1:4]) == "0101"
 
-    # Gives "00000000" instead
-    @test_broken reverse(bitstringview(UInt(1) << 8 - 1, 8)) == "11111111"
 end
 
 @testset "bitvecview" begin

@@ -10,7 +10,14 @@ export bitstringview, BitStringView, @bsv
 struct BitStringView{AT} <: AbstractString
     data::AT
     len::Int
+
+    function BitStringView{AT}(data::AT, len::Integer) where AT
+        len > BitsX.bitlength(data) && throw(DomainError(len, "Length of BitStringView too large for data type."))
+        new{AT}(data, len)
+    end
 end
+
+BitStringView(data, len) = BitStringView{typeof(data)}(data, len)
 
 function Base.show(bs::BitStringView)
     Base.show(stdout, bs)
@@ -95,7 +102,8 @@ end
 
 # Warning! non-"1 based vectors" might fail here
 @inline function Base.iterate(bv::BitStringView, i::Int=firstindex(parent(bv)))
-    if (i % UInt) - 1 < BitsX.bitlastindex(parent(bv))
+#    if (i % UInt) - 1 < BitsX.bitlastindex(parent(bv))
+    if (i % UInt) - 1 < bv.len
         (@inbounds bv[i], i + 1)
     else
         nothing
@@ -106,7 +114,6 @@ function Base.reverse(bv::BitStringView{T}) where {T <: Integer}
     rev = Base.bitreverse(parent(bv)) >> (8 * sizeof(T) - length(bv))
     bitstringview(rev, length(bv))
 end
-
 
 Base.bitreverse(bv::BitStringView{T}) where {T <: Integer} = bitstringview(Base.bitreverse(parent(bv)), length(bv))
 
