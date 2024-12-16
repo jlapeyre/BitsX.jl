@@ -49,12 +49,9 @@
 end
 
 @testset "bitvector" begin
-    v = [1,0,1,0]
-    b1 = bitvector(v)
+    b1 = BitVector([1,0,1,0])
     b2 = bitvector("1010")
     @test b1 == b2
-    x = 12345
-    s = bitstring(x)
 end
 
 @testset "bit_string" begin
@@ -163,6 +160,8 @@ end
     @test_throws DomainError from_binary_char('a')
     @test from_binary_char(Int, '0') === 0
     @test from_binary_char(Int, '1') === 1
+    @test from_binary_char(Char, '1') === '1'
+    @test from_binary_char(Char, '0') === '0'
 end
 
 @testset "randbitstring" begin
