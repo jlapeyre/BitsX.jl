@@ -12,8 +12,8 @@ struct BitStringView{AT} <: AbstractString
     len::Int
 
     function BitStringView{AT}(data::AT, len::Integer) where AT
-        len > BitsX.bitlength(data) &&
-            throw(DomainError(len, "Length of BitStringView too large for data type."))
+        (len > BitsX.bitlength(data) || len < 0) &&
+            throw(DomainError(len, "Length of BitStringView out of range for data type."))
         new{AT}(data, len)
     end
 end
@@ -32,18 +32,61 @@ function Base.show(io::IO, bs::BitStringView)
 end
 
 """
-   bitstringview(v)
+   bitstringview(v, [n])
 
-Return an `AbstractString` view of the collection of numbers `v` that represent a sequence of bits.
-Each element of `v` must satifiy either `isone` or `iszero`.
+Return an `AbstractString` view of `v` that represent a sequence of bits.
+
+`v` may be of any type such that `BitsX.to_binary_char` returns a character
+(i.e. does not throw an error) for each element of `v` as determined by
+`BitsX.bitgetindex`.
+
+# Examples
+```julia-repl
+julia> bitstringview([1,0,1,1])
+"1011"
+
+julia> bitstringview([true, false, true, false])
+"1010"
+
+julia> bitstringview(UInt8(1 << 4 - 1))
+"00001111"
+
+julia> bitstringview("101") # `bitgetindex` is implemented for binary strings.
+"101"
+```
+
+If `n` is omitted, then the length of the string is the number of bits in `v`. For
+example, for `v = UInt64(1)`, the length of the string is `64`. For `v::AbstractArray`,
+the number of bits is `length(v)`.
+
+If `n` is zero, then the length of the string is the minimum number of bits needed to
+represent `v`. For example
+
+# Examples
+```julia-repl
+julia> length(bitstringview(UInt64(7)))
+64
+
+julia> length(bitstringview(UInt64(7), 5))
+5
+
+julia> length(bitstringview(UInt64(7), 0)
+3
+
+julia> bitstringview(UInt64(7), 0)
+"111"
+
+julia> bitstringview(UInt16(7))
+"0000000000000111"
+```
 
 `String(bitstringview(v))` converts `v` to a `String.
 """
-function bitstringview(v, pad::Integer=BitsX.bitlength(v))
-    if iszero(pad)
+function bitstringview(v, n::Integer=BitsX.bitlength(v))
+    if iszero(n)
         pad1 = BitsX.min_bits(v)
     else
-        pad1 = Int(pad)
+        pad1 = Int(n)
     end
     BitStringView{typeof(v)}(v, pad1)
 end

@@ -39,13 +39,16 @@ is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 """
     to_binary_char_code(x::T)::UInt8
 
-Convert `x` to the ASCII code for character `'0'` or `'1'`.
-`x` must be equal to either `zero(T)` or `one(T)`.
+Convert `x` to the ASCII code for character `'0'` or `'1'`.  One of `isbinzero(x)` or
+`isbinone(x)` must return `true`.
 
-`T` must implement `iszero` (or `zero`) and `isone`
-(or `one`). Alternatively, you can implement `isbinzero` (or `binzero`)
-and `isbinone` (or `binone`) if `zero` and `one` do not give the desired
-result for a type.
+`isbinzero` and `isbinone` fall back to `iszero` and `isone` where this makes sense.
+
+If `zero(::T)` and `one(::T)` do not give the a useful result for `T` you can define
+
+
+`T` must implement `iszero` (or `zero`) and `isone` (or `one`). Alternatively, you can
+implement `isbinzero` (or `binzero`) and `isbinone` (or `binone`) 
 
 See also [`binzero`](@ref), [`binone`](@ref).
 """
@@ -60,12 +63,10 @@ end
 
 The value of type `T` representing bit value zero.
 
-This sometimes coincides with `zero`, which represents the additive
-identity in Julia.
+If `T <: Integer`, or a matrix thereof, return `zero(::T)`.  If `T` is other
+`AbstractArray`, `AbstractString`, `AbstractFloat`, `Complex`, throw a `MethodError`.
 
-If `T <: Integer`, or a matrix thereof, return `zero(::T)`. If `T` equals `Char`, return `0`.
-If `T` is other `AbstractArray`,  `AbstractString`, `AbstractFloat`, `Complex`, throw
-a `MethodError`.
+The fallback method returns `zero(x)`.
 """
 binzero(x) = zero(x)
 
@@ -74,10 +75,19 @@ binzero(x) = zero(x)
 
 The value of type `T` representing bit value one.
 
-This sometimes coincides with `one`, which represents the multiplicative
-identity in Julia.
+This sometimes coincides with `one`, which represents the multiplicative identity in
+Julia.
 """
 binone(x) = one(x)
+binone(::Type{Char}) = '1'
+
+"""
+    binzero(::Type{Char})
+    binzero(::{Char})
+
+Return `'0'`.
+"""
+binzero(::Type{Char}) = '0'
 binzero(::Char) = '0'
 binone(::Char) = '1'
 binone(x::T) where {T <: AbstractMatrix{<:Integer}} = one(x)
@@ -116,14 +126,8 @@ isbinzero(x::T) where {T <: AbstractMatrix{<:Integer}} = iszero(x)
 """
     to_binary_char(x::T)::Char
 
-Convert `x` to the character `'0'` or `'1'`.
-Convert `x` to the ASCII code for character `'0'` or `'1'`.
+Convert `x` to the `Char` `'0'` or `'1'`.
 `x` must be equal to either `binzero(T)` or `binone(T)`.
-
-`T` can be any type that implements `isbinzero` (or `binzero`) and `isbinone`
-(or `binone`).
-
-
 """
 to_binary_char(x) = Char(to_binary_char_code(x))
 
@@ -132,14 +136,14 @@ from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 """
     from_binary_char([::Type{T} = Bool], x)
 
-Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to
-`zero(T)` and `one(T)`.
+Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to `binzero(T)`
+and `binone(T)`.
 """
 from_binary_char(::Type{T}, x::UInt8) where T = from_binary_char(T, x, Val(true))
 
 function from_binary_char(::Type{T}, x::UInt8, check::Val{true}) where T
-    is_one_char(x) && return one(T)
-    is_zero_char(x) && return zero(T)
+    is_one_char(x) && return binone(T)
+    is_zero_char(x) && return binzero(T)
     throw(DomainError(x, "Must be '0' or '1'."))
 end
 
@@ -821,15 +825,12 @@ Base.bitreverse(n::Real) = bitreverse(asint(n))
 #bitreverse(v) = reverse(v)
 bitreverse!(v) = reverse!(v)
 
-
-
 ###
 ### bitsize
 ###
 ## Don't confuse with bitsizeof
 
 bitsize(a) = size(a)
-#bitlength(a) = prod(bitsize(a))
 bitsize(x::Real) = (bitlength(x),)
 bitsize(s::AbstractString) = (ncodeunits(s),)
 bitsize(t::Tuple) = (length(t),)
@@ -885,17 +886,26 @@ bit_count_zeros(v::AbstractArray) = count(iszero, v)
 ###
 
 # Does this interface make sense? Should the user just do this: BitVector(bitvecview(s))
-"""
-    bitvector(args...)
+# """
+#     bitvector(args...)
+# Create a `BitVector`. This allows initializing with a bit string.
+# Otherwise `args` are passed to `BitVector`.
+# """
+# bitvector(args...) = BitVector(args...)
 
-Create a `BitVector`. This allows initializing with a bit string.
-Otherwise `args` are passed to `BitVector`.
-
-Unstable API.
+# Does this interface make sense? Should the user just do this: BitVector(bitvecview(s))
 """
-bitvector(args...) = BitVector(args...)
+    bitvector(s::AbstractString)
+
+Return a `BitVector` with the bits in bitstring `s`.
+"""
 bitvector(s::AbstractString) = BitVector(bitvecview(s))
 
+"""
+    bitvector(x::Union{Integer, Base.IEEEFloat})
+
+Return a `BitVector` with the bits in `x`.
+"""
 function bitvector(x::Union{Integer, Base.IEEEFloat})
     _bits = BitArray(undef, 8 * sizeof(x))
     xi = asint(x)
@@ -908,6 +918,3 @@ function bitvector(x::Union{Integer, Base.IEEEFloat})
     end
     return _bits
 end
-
-
-# bitlength(x::AbstractArray{Bool}) = length(x) Not needed
