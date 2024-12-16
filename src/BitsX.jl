@@ -34,7 +34,7 @@ export mask, masked, leftmask, rightmask, rangemask,
 export is_bitstring, bit_string, normalize_bitstring, count_bits
 export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_char_code, to_binary_char
 
-export parse_bin, bitconvert
+export parse_bin
 export BitArrayView, bitvecview, bitmatview, bitarrview, BitVectorView, BitMatrixView
 
 export BitStringView, bitstringview
@@ -67,9 +67,13 @@ include("bitvecview.jl")
 include("bitstringview.jl")
 using .BitStringViews: bitstringview, BitStringView, @bsv
 
-include("bitconvert.jl")
-using .BitConvert: bitconvert
+# Not useful yet.
+# include("bitconvert.jl")
+# using .BitConvert: bitconvert
 
 include("sbitvectors.jl")
+
+include("bitarraysx.jl")
+import .BitArraysX
 
 end # module BitsX

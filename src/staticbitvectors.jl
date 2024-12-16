@@ -1,5 +1,7 @@
 # TODO: make this into submodule
 
+# TODO: We could also store the bits in a Tuple of values
+
 # TODO:
 # Not supplying `IntT` is much slower (+ 100ns, eg 10 x) than it should be. It is much slower than the time
 # required to lookup the correct `IntT`.
@@ -9,10 +11,10 @@
 Convert the container of binary digits `dts` to a `StaticBitVector`.
 
 `IntT` is the storage type, i.e., the type that is wrapped. Input is not validated for
-correctness, nor for having length greater than the number of bits in `IntT`. If
-`IntT` is omitted, the smallest type capable of representing `dts` is used.
-However, supplying `IntT` results in faster conversion because the output
-type can be inferred by the compiler.
+correctness, nor for having length greater than the number of bits in `IntT`. If `IntT` is
+omitted, the smallest type capable of representing `dts` is used.  However, supplying
+`IntT` results in faster conversion because the output type can be inferred by the
+compiler.
 
 # Examples
 ```julia-repl
