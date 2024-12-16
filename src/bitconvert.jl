@@ -1,3 +1,5 @@
+# This is not used. Barely begun
+
 module BitConvert
 
 using Base: CodeUnits

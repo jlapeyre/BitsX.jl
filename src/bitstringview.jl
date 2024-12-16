@@ -82,11 +82,11 @@ julia> bitstringview(UInt16(7))
 
 `String(bitstringview(v))` converts `v` to a `String.
 """
-function bitstringview(v, n::Integer=BitsX.bitlength(v))
-    if iszero(n)
+function bitstringview(v, pad::Integer=BitsX.bitlength(v))
+    if iszero(pad)
         pad1 = BitsX.min_bits(v)
     else
-        pad1 = Int(n)
+        pad1 = Int(pad)
     end
     BitStringView{typeof(v)}(v, pad1)
 end

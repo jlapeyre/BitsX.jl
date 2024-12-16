@@ -48,7 +48,7 @@ If `zero(::T)` and `one(::T)` do not give the a useful result for `T` you can de
 
 
 `T` must implement `iszero` (or `zero`) and `isone` (or `one`). Alternatively, you can
-implement `isbinzero` (or `binzero`) and `isbinone` (or `binone`) 
+implement `isbinzero` (or `binzero`) and `isbinone` (or `binone`)
 
 See also [`binzero`](@ref), [`binone`](@ref).
 """
@@ -605,11 +605,17 @@ julia> bit_string(1.0)
 ```
 """
 function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
+# Not yet implemented
+# function bit_string(x::T; pad::Union{Nothing,Integer}=nothing, nsep::Union{Nothing,Integer}=nothing) where T <: Integer
+#     !isnothing(nsep) && return _bit_string(x, pad, nsep)
     isnothing(pad) && return bitstring(x)
     return string(reinterpret(Base.uinttype(T), x); pad=pad, base=2)
 end
 
 bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
+
+function _bit_string(x, pad, nsep)
+end
 
 """
     min_bits(n::Integer)
