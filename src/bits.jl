@@ -393,7 +393,7 @@ the return type here does not depend on the input type, but rather is always `In
 bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
 bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
 
-function bit(x::AbstractVector{Bool}, i::Integer)
+function bit(x::AbstractArray{Bool}, i::Integer)
     @boundscheck checkbounds(x, i)
     return @inbounds x[i] # % Int
 end
@@ -784,6 +784,7 @@ end
 # No this is slow
 # bitgetindex(::Type{String}, s::String, bitinds) = String(bitgetindex(Vector{UInt8}, s, bitinds))
 
+# This description might mention endianness.
 """
     fliporder(::Type{T}, i::Int)
     fliporder(x::T, i::Int)
@@ -807,12 +808,13 @@ fliporder(x, i::Int) = bitlength(x) - i + 1
     return xout % T2
 end
 
+# Return same type T, same as input x::T
 function bitgetindex(::Type{T2}, x::T, bitinds::AbstractUnitRange{<:Integer}) where {T<:Real, T2}
     xout = asint(x)
     _i0, _i1 = extrema(bitinds)
     i1 = fliporder(xout, _i0)
     i0 = fliporder(xout, _i1)
-    return reinterpret(T, masked(xout, i0:i1) >>> (i0-1)) % T2
+    return reinterpret(T, masked(xout, i0:i1) >>> (i0-1))
 end
 
 ###
