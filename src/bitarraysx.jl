@@ -125,20 +125,10 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
     len::Int
     dims::NTuple{N, Int}
 
-#     function BitArrayAlt{T, N}(::UndefInitializer, dims::Vararg{Int,N}) where {T, N}
-#         len = _len_from_dims(dims)
-#         nc = num_bit_chunks(T, len)
-#         chunks = Vector{T}(undef, nc)
-#         nc > 0 && (chunks[end] = T(0))
-#         b = new(chunks, len, dims)
-# #        N != 1 && (b.dims = dims)
-#         return b
-#     end
-
     function BitArrayAlt{T, N}(_chunks::Chunks{T}, dims::Vararg{Int,N}) where {T, N}
         num_bits = first(dims)
         chunks = _chunks.chunks
-        len = _len_from_dims(dims)
+        len = _length_from_dims(dims)
         nc = num_bit_chunks(T, len)
         if nc > length(chunks)
             throw(DimensionMismatch("Length of chunks is too small"))
@@ -149,6 +139,48 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
         return b
     end
 end
+
+Base.length(b::BitArrayAlt) = b.len
+Base.size(b::BitArrayAlt) = b.dims
+
+Base.IndexStyle(::Type{<:BitArrayAlt}) = Base.IndexLinear()
+
+function BitArrayAlt(chunks::Chunks{T}) where T
+    len = length(chunks) * sizeof(T) * 8
+    BitArrayAlt{T, 1}(chunks, len)
+end
+
+BitArrayAlt(chunks::Chunks, dims::NTuple) = BitArrayAlt(chunks, dims...)
+BitArrayAlt(chunks::Chunks{T}, dims::Integer...) where T = BitArrayAlt(chunks, map(Int, dims)...)
+
+function BitArrayAlt(chunks::Chunks{T}, dims::Int...) where T
+    BitArrayAlt{T, length(dims)}(chunks, dims...)
+end
+
+Base.isassigned(B::BitArrayAlt, i::Int) = 1 <= i <= length(B)
+
+@inline function Base.getindex(B::BitArrayAlt, i::Int)
+    @boundscheck checkbounds(B, i)
+    unsafe_bitgetindex_alt(first(size(B)), B.chunks, i)
+end
+
+@inline function get_chunks_id_alt(i, dim1, ::Type{T}) where T
+    bitsz = sizeof(T) * 8
+    (i1, i2) = divrem(i - 1, dim1)
+    (ia, offset) = divrem(i2, bitsz)
+    (a, b) = divrem(dim1, bitsz)
+    blksize = iszero(b) ? a : a + 1
+    blk = blksize * i1
+    (blk + ia + 1, offset)
+end
+
+@inline function unsafe_bitgetindex_alt(dim1, Bc::Vector{T}, i::Int) where {T<:Unsigned}
+    i1, i2 = get_chunks_id_alt(i, dim1, T)
+    u = T(1) << i2
+    @inbounds r = (Bc[i1] & u) != 0
+    return r
+end
+
 
 
 end # module BitArraysX

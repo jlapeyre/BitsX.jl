@@ -256,7 +256,7 @@ end
     @test isvalid(bs1, 1)
     @test isvalid(bs1, 64)
     @test !isvalid(bs1, 65)
-    @test_broken bs1[55:60] == "11111"
+    @test bs1[55:60] == "111110"
     @test String([x for x in bs1]) == bs1
 
     @test bitstringview(sbs1) == sbs1
