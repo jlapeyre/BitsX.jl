@@ -12,7 +12,8 @@ struct BitStringView{AT} <: AbstractString
     len::Int
 
     function BitStringView{AT}(data::AT, len::Integer) where AT
-        len > BitsX.bitlength(data) && throw(DomainError(len, "Length of BitStringView too large for data type."))
+        len > BitsX.bitlength(data) &&
+            throw(DomainError(len, "Length of BitStringView too large for data type."))
         new{AT}(data, len)
     end
 end
@@ -24,11 +25,8 @@ function Base.show(bs::BitStringView)
 end
 function Base.show(io::IO, bs::BitStringView)
     print(io, '"')
-    # `for c in bs` iterates bitlength of bs.data times
-    # Ignores `bs.len`. I don't know why. So there is
-    # still a bug to find. But this eliminates it in printing here.
-    for i in eachindex(bs)
-        print(bs[i])
+    for c in bs
+        print(io, c)
     end
     print(io, '"')
 end

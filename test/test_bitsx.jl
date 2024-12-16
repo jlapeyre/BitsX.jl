@@ -277,6 +277,8 @@ end
     # Get "0000" below
     @test_broken String(bv[1:4]) == "0101"
 
+    bss = bitstringview.([1 2; 3 4], 3)
+    @test string(bss) == "BitStringView{Int64}[\"001\" \"010\"; \"011\" \"100\"]"
 end
 
 @testset "bitvecview" begin
