@@ -7,6 +7,17 @@ struct Chunks{T<:Unsigned}
 end
 Base.length(chunks::Chunks) = length(chunks.chunks)
 
+function _length_from_dims(dims)
+    len = 1
+    i = 1
+    for d in dims
+        d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
+        len *= d
+        i += 1
+    end
+    len
+end
+
 """
    BitArrayX{T<:Unsigned, N} <: AbstractArray{Bool, N}
 
@@ -22,36 +33,24 @@ struct BitArrayX{T<:Unsigned, N} <: AbstractArray{Bool, N}
     dims::NTuple{N, Int}
 
     function BitArrayX{T, N}(::UndefInitializer, dims::Vararg{Int,N}) where {T, N}
-        n = 1
-        i = 1
-        for d in dims
-            d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
-            n *= d
-            i += 1
-        end
-        nc = num_bit_chunks(T, n)
+        len = _length_from_dims(dims)
+        nc = num_bit_chunks(T, len)
         chunks = Vector{T}(undef, nc)
         nc > 0 && (chunks[end] = T(0))
-        b = new(chunks, n, dims)
+        b = new(chunks, len, dims)
 #        N != 1 && (b.dims = dims)
         return b
     end
 
     function BitArrayX{T, N}(_chunks::Chunks{T}, dims::Vararg{Int,N}) where {T, N}
         chunks = _chunks.chunks
-        n = 1
-        i = 1
-        for d in dims
-            d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
-            n *= d
-            i += 1
-        end
-        nc = num_bit_chunks(T, n)
-        if nc > length(chunks)
-            throw(DimensionMismatch("Length of chunks is too small"))
-        end
+        len = _length_from_dims(dims)
+        nc = num_bit_chunks(T, len)
+        nc > length(chunks) && throw(DimensionMismatch("Length of chunks is too small"))
         nc > 0 && (chunks[end] = T(0))
-        b = new(chunks, n, dims)
+        b = new(chunks, len, dims)
+        # If we need to make this immutable, then do the following
+        # Or maybe do Union{NTuple, Nothing}
 #        N != 1 && (b.dims = dims)
         return b
     end
@@ -62,6 +61,8 @@ Base.size(b::BitArrayX) = b.dims
 
 const BitVectorX{T} = BitArrayX{T, 1} where T
 
+BitArrayX{T}(::UndefInitializer, dims...) where {T<:Unsigned} = BitArrayX(T, undef, dims...)
+BitArrayX(::Type{T}, ::UndefInitializer, dims::NTuple) where T = BitArrayX(T, undef, dims...)
 BitArrayX(::Type{T}, ::UndefInitializer, dims::Integer...) where T = BitArrayX(T, undef, map(Int,dims))
 BitArrayX(::Type{T}, ::UndefInitializer, dims::Int...) where T = BitArrayX{T, length(dims)}(undef, dims...)
 
@@ -107,5 +108,53 @@ Base.isassigned(B::BitArrayX, i::Int) = 1 <= i <= length(B)
     @boundscheck checkbounds(B, i)
     unsafe_bitgetindex(B.chunks, i)
 end
+
+###
+### BitArrayAlt
+###
+
+struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
+    chunks::Vector{T}
+    len::Int
+    dims::NTuple{N, Int}
+
+#     function BitArrayAlt{T, N}(::UndefInitializer, dims::Vararg{Int,N}) where {T, N}
+#         n = 1
+#         i = 1
+#         for d in dims
+#             d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
+#             n *= d
+#             i += 1
+#         end
+#         nc = num_bit_chunks(T, n)
+#         chunks = Vector{T}(undef, nc)
+#         nc > 0 && (chunks[end] = T(0))
+#         b = new(chunks, n, dims)
+# #        N != 1 && (b.dims = dims)
+#         return b
+#     end
+
+    function BitArrayAlt{T, N}(_chunks::Chunks{T}, dims::Vararg{Int,N}) where {T, N}
+        num_bits = first(dims)
+        chunks = _chunks.chunks
+
+        n = 1
+        i = 1
+        for d in dims
+            d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
+            n *= d
+            i += 1
+        end
+        nc = num_bit_chunks(T, n)
+        if nc > length(chunks)
+            throw(DimensionMismatch("Length of chunks is too small"))
+        end
+        nc > 0 && (chunks[end] = T(0))
+        b = new(chunks, n, dims)
+#        N != 1 && (b.dims = dims)
+        return b
+    end
+end
+
 
 end # module BitArraysX
