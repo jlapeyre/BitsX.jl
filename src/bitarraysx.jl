@@ -87,19 +87,26 @@ for nbits in (8, 16, 32, 64, 128)
     T = Symbol(:UInt, nbits)
     @eval const $(Symbol(:_msk, nbits)) = ~$T(0)
     @eval @inline $divname(l) = l >> $shiftn
+    @eval @inline _divX(::Type{$T}, l) = $divname(l)
     @eval @inline $modname(l) = l & $(nbits - 1)
-    @eval num_bit_chunks(::Type{$T}, n::Int) = $divname(n + $(nbits-1))
+    @eval @inline _modX(::Type{$T}, l) = $modname(l)
     # @inline _blsr(x)= x & (x-1) #zeros the last set bit. Has native instruction on many archs. needed in multidimensional.jl
     # @inline _msk_end(l::Int) = _msk64 >>> _mod64(-l)
     # @inline _msk_end(B::BitArray) = _msk_end(length(B))
     @eval @inline $(Symbol(:get_chunks_id_, nbits))(i::Int) = $divname(i-1)+1, $modname(i-1)
     #    @eval Base.getindex(b::BitArrayX{$T}, i::Integer) =
+    # TODO: This can be moved out of eval, with bit of rewriting.
+    # Types will be inferred and computation done at compiletime.
     @eval @inline function unsafe_bitgetindex(Bc::Vector{$T}, i::Int)
         i1, i2 = $(Symbol(:get_chunks_id_, nbits))(i)
         u = $T(1) << i2
         @inbounds r = (Bc[i1] & u) != 0
         return r
     end
+end
+
+function num_bit_chunks(::Type{T}, n::Int) where T
+    _divX(T, n + (8 * sizeof(T) - 1))
 end
 
 Base.isassigned(B::BitArrayX, i::Int) = 1 <= i <= length(B)
@@ -119,17 +126,11 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
     dims::NTuple{N, Int}
 
 #     function BitArrayAlt{T, N}(::UndefInitializer, dims::Vararg{Int,N}) where {T, N}
-#         n = 1
-#         i = 1
-#         for d in dims
-#             d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
-#             n *= d
-#             i += 1
-#         end
-#         nc = num_bit_chunks(T, n)
+#         len = _len_from_dims(dims)
+#         nc = num_bit_chunks(T, len)
 #         chunks = Vector{T}(undef, nc)
 #         nc > 0 && (chunks[end] = T(0))
-#         b = new(chunks, n, dims)
+#         b = new(chunks, len, dims)
 # #        N != 1 && (b.dims = dims)
 #         return b
 #     end
@@ -137,20 +138,13 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
     function BitArrayAlt{T, N}(_chunks::Chunks{T}, dims::Vararg{Int,N}) where {T, N}
         num_bits = first(dims)
         chunks = _chunks.chunks
-
-        n = 1
-        i = 1
-        for d in dims
-            d >= 0 || throw(ArgumentError("dimension size must be ≥ 0, got $d for dimension $i"))
-            n *= d
-            i += 1
-        end
-        nc = num_bit_chunks(T, n)
+        len = _len_from_dims(dims)
+        nc = num_bit_chunks(T, len)
         if nc > length(chunks)
             throw(DimensionMismatch("Length of chunks is too small"))
         end
         nc > 0 && (chunks[end] = T(0))
-        b = new(chunks, n, dims)
+        b = new(chunks, len, dims)
 #        N != 1 && (b.dims = dims)
         return b
     end
