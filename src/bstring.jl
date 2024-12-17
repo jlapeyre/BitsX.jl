@@ -103,12 +103,20 @@ the width in bits of `x` then the string will be padded with `'0'`. If `pad` is 
 than the width of `x`, then upper bits will be truncated.
 
 If `nsep` is given then a space is inserted every `nsep` bits.
+
+If `sep` is `true` and `nsep` is not given, then `nsep` is set to eight.
+For example, `bstring(x; sep=true)`. This is for convenience in the most common case.
 """
-function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true, nsep::Union{Int, Nothing}=nothing) where {T}
+function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true,
+                 nsep::Union{Int, Nothing}=nothing, sep::Bool=false) where {T}
     isprimitivetype(T) || throw(ArgumentError(LazyString(T, " not a primitive type")))
     str = (pad == _BStrings._bitsizeof(T) ? _BStrings._bstring(x, rev) :
         _BStrings._bstring(x, pad, rev))
-    isnothing(nsep) && return str
+    if isnothing(nsep)
+        sep || return str
+        nsep = 8
+    end
+#    nsep = (isa(nsep, Bool) && nsep ? 8 : nsep)
     # Following is much less performant than creating `str`.
     return _BStrings._space_string(str, nsep, pad)
 end
