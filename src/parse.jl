@@ -1,7 +1,7 @@
 module ParseBin
 
 using Base: CodeUnits
-using BitsX: is_one_char, is_zero_char, inttype
+using ..BitsX._BitsX: is_one_char, is_zero_char, inttype
 using ..BitIntegersX: min_uint_type, get_one_bit_masks
 
 export parse_bin

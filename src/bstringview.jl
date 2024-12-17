@@ -1,7 +1,8 @@
 module BStringViews
 
-import ..BitsX
 import ..BitsX.BStrings
+import ..BitsX._BitsX as BitsX
+
 
 # Maybe @bsv should be removed, or have a different name
 export BStringView, @bsv, bstringview
@@ -173,8 +174,6 @@ for func in (:reverse, :reverse!)
     @eval Base.$(func)(bv::BStringView, args...) = bstringview(Base.$(func)(parent(bv), args...), length(bv))
 end
 
-# wtf? needed to resolve ambiguous convert
-Base.convert(::Type{BitsX.StaticBitVectorView{T}}, x::BitsX.StaticBitVectorView{T}) where T = x
 
 # Removed following line because it causes a several second hang in the REPL after loading this package
 # and pressing any key.

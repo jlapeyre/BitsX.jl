@@ -47,8 +47,8 @@
 end
 
 @testset "bitvector" begin
-    b1 = BitVector([1,0,1,0])
-    b2 = bitvector("1010")
+    b1 = BitVector([1,0,1,0,0,0,0,0])
+    b2 = bitvector(UInt8(5))
     @test b1 == b2
 end
 

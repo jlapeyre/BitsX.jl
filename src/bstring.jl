@@ -88,6 +88,36 @@ function _space_string(str, nsep, pad)
     String(take!(buf))
 end
 
+## TODO: following is from Base int_funcs.jl
+## We should use this instead of much of what I have above
+function _bin(x::Unsigned, pad::Int, neg::Bool)
+    m = top_set_bit(x)
+    n = neg + max(pad, m)
+    a = StringMemory(n)
+    # for i in 0x0:UInt(n-1) # automatic vectorization produces redundant codes
+    #     @inbounds a[n - i] = 0x30 + (((x >> i) % UInt8)::UInt8 & 0x1)
+    # end
+    i = n
+    @inbounds while i >= 4
+        b = UInt32((x % UInt8)::UInt8)
+        d = 0x30303030 + ((b * 0x08040201) >> 0x3) & 0x01010101
+        a[i-3] = (d >> 0x00) % UInt8
+        a[i-2] = (d >> 0x08) % UInt8
+        a[i-1] = (d >> 0x10) % UInt8
+        a[i]   = (d >> 0x18) % UInt8
+        x >>= 0x4
+        i -= 4
+    end
+    while i > neg
+        @inbounds a[i] = 0x30 + ((x % UInt8)::UInt8 & 0x1)
+        x >>= 0x1
+        i -= 1
+    end
+    neg && (@inbounds a[1] = 0x2d) # UInt8('-')
+    String(a)
+end
+
+
 end # module _BStrings
 
 import ._BStrings
@@ -120,5 +150,8 @@ function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true,
     # Following is much less performant than creating `str`.
     return _BStrings._space_string(str, nsep, pad)
 end
+
+
+
 
 end # module BStrings

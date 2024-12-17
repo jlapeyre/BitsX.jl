@@ -1,3 +1,9 @@
+module _BitsX
+
+import ..BitsX: Word
+
+import Random
+
 const BoolOrVal = Union{Bool, Val{true}, Val{false}}
 
 # Not sure why we have to do this. Forces specialization
@@ -827,6 +833,7 @@ end
 
 ## These are exported by Base.
 
+# PIRACY !
 # Use duck typing. This covers AbstractString, AbstractArray
 Base.bitreverse(s) = reverse(s)
 Base.bitreverse(n::Real) = bitreverse(asint(n))
@@ -905,13 +912,6 @@ bit_count_zeros(v::AbstractArray) = count(iszero, v)
 # """
 # bitvector(args...) = BitVector(args...)
 
-# Does this interface make sense? Should the user just do this: BitVector(bitvecview(s))
-"""
-    bitvector(s::AbstractString)
-
-Return a `BitVector` with the bits in bitstring `s`.
-"""
-bitvector(s::AbstractString) = BitVector(bitvecview(s))
 
 """
     bitvector(x::Union{Integer, Base.IEEEFloat})
@@ -930,3 +930,5 @@ function bitvector(x::Union{Integer, Base.IEEEFloat})
     end
     return _bits
 end
+
+end # module _BitsX

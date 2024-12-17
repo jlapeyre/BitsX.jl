@@ -54,7 +54,6 @@ These also enable efficient conversion.
 * `StaticBitVector`
 * `StaticBitVector0`
 * `StaticBitVectorN`
-* `BitStringVector`
 * `BStringView`
 
 #### Some utilites used in this package will be of wider use

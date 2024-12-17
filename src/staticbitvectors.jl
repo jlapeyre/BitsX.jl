@@ -1,4 +1,13 @@
-# TODO: make this into submodule
+#  This name is misleading
+
+module StaticBitVectors
+
+import ..BitsX._BitsX: _VEC_LIKE, _toVal, ZeroBased, OneBased, IndexBase, BoolOrVal, bit,
+    ZeroBased, OneBased, normalize_bitstring, rightmask, tstbit, undigits
+
+import ..BitsX.BitIntegersX
+
+import ..BitsX.ParseBin: parse_bin
 
 # TODO: We could also store the bits in a Tuple of values
 
@@ -450,8 +459,13 @@ __bits(x::Real, Ndum, Tdum, Ty::Type{StaticBitVectorN{T, N}}) where {T, N} = Ty(
 __bits(x::Real, N, T, Ty::Type{StaticBitVectorN}) = StaticBitVectorN{T, N}(x)
 __bits(x::Real, N, T, ::Type{ST}) where {ST <: AbstractStaticBitVectorLen} = ST(x, N)
 
+# wtf? needed to resolve ambiguous convert
+Base.convert(::Type{StaticBitVectorView{T}}, x::StaticBitVectorView{T}) where T = x
+
 # TODO: could use @checkbounds, etc. to allow @inbounds
 
 # We use more general methods now
 # bitgetindex(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
 # bitgetindex(x::AbstractVector{Bool}, bitinds) = x[bitinds]
+
+end # module StaticBitVectors

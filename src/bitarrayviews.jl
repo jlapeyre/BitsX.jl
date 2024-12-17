@@ -1,6 +1,10 @@
 ###
-### BitArrayView
+### BitArrayViews
 ###
+
+module BitArrayViews
+
+using BitsX._BitsX: bitlength, bitgetindex, is_bitstring, is_one_char
 
 const _DEFAULT_CHECK = true
 
@@ -156,6 +160,14 @@ Base._count(::typeof(identity), B::BitArrayView, ::Colon, init) = init + sum(iso
 Base.String(bs::BitArrayView{<:Any, <:Any, <:AbstractString}) = parent(bs)
 Base.String(bs::BitArrayView{<:Any, <:Any, <:Real}) = String(bitstringview(parent(bs)))
 
+# # Does this interface make sense? Should the user just do this: BitVector(bitvecview(s))
+# """
+#     bitvector(s::AbstractString)
+
+# Return a `BitVector` with the bits in bitstring `s`.
+# """
+# bitvector(s::AbstractString) = BitVector(bitvecview(s))
+
 # Disable these. Not the correct thing and not tested.
 # TODO: do reverse in the wrapper, not the parent object
 # for func in (:reverse, :bitreverse)
@@ -165,3 +177,5 @@ Base.String(bs::BitArrayView{<:Any, <:Any, <:Real}) = String(bitstringview(paren
 # for func in (:reverse, :bitreverse)
 #     @eval Base.$(func)(bs::BitVectorView, args...) = BitArrayView(Base.$(func)(parent(bs)), args...)
 # end
+
+end # module BitArrayViews
