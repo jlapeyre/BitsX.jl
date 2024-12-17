@@ -400,6 +400,10 @@ end
 @inline bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
 @inline bit(::OneBased, args...) = bit(args...)
 
+function bit(x, inds::AbstractVector)
+    [bit(x, i) for i in inds]
+end
+
 """
     bit0(x, i)
 

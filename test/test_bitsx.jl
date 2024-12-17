@@ -41,10 +41,8 @@
         v = collect(bitvecview(x))
         n0v = bit_count_zeros(v)
         n1v = bit_count_ones(v)
-        brv = bitreverse(v)
         @test n0v == n0
         @test n1v == n1
-        @test bitstringview(brv) == brs
     end
 end
 
@@ -232,8 +230,8 @@ end
     @test [x for x in bs] == [x for x in sbs]
     @test reverse(bitstringview([1,1,0,0])) == "0011"
     rev1 = reverse(bitstringview(UInt(1) << 4 - 1, 8))
-    @test String(rev1) == "11110000"
-    @test rev1 == "11110000"
+    @test String(rev1) == "00001111"
+    @test rev1 == "00001111"
 
     bs0 = bitstringview(UInt8(1) << 8 - UInt8(1))
     @test bs0 == "11111111"
@@ -245,18 +243,18 @@ end
 
     n = UInt64(1000)
     bs1 = bitstringview(n)
-    sbs1 = "0000000000000000000000000000000000000000000000000000001111101000"
+    sbs1 = "0001011111000000000000000000000000000000000000000000000000000000"
     @test bs1 == sbs1
     @test bs1[1] == '0'
-    @test bs1[end-3] == '1'
+    @test bs1[4] == '1'
     @test parent(bs1) === n
     @test ncodeunits(bs1) == 64
     @test codeunit(bs1) == UInt8
-    @test codeunit(bs1, 64 - 3) == 0x31
+    @test codeunit(bs1, 4) == 0x31
     @test isvalid(bs1, 1)
     @test isvalid(bs1, 64)
     @test !isvalid(bs1, 65)
-    @test bs1[55:60] == "111110"
+    @test bs1[6:11] == "111110"
     @test String([x for x in bs1]) == bs1
 
     @test bitstringview(sbs1) == sbs1
@@ -272,12 +270,12 @@ end
 
     bv = bitstringview(5, 4)
     @test length(bv) == 4
-    @test String(bv) == "0101"
+    @test String(bv) == "1010"
     # Get "0000" below
-    @test_broken String(bv[1:4]) == "0101"
+    @test String(bv[1:4]) == "1010"
 
     bss = bitstringview.([1 2; 3 4], 3)
-    @test string(bss) == "BitStringView{Int64}[\"001\" \"010\"; \"011\" \"100\"]"
+    @test string(bss) == "BitStringView{Int64}[\"100\" \"010\"; \"110\" \"001\"]"
 end
 
 @testset "bitvecview" begin

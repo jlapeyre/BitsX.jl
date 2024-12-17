@@ -3,7 +3,7 @@ module BitStringViews
 import ..BitsX
 
 # Maybe @bsv should be removed, or have a different name
-export bitstringview, BitStringView, @bsv
+export bitstringview, BitStringView, @bsv, bstringview
 
 # TODO: length and field `len` is working correctly everywhere.
 
@@ -32,7 +32,8 @@ function Base.show(io::IO, bs::BitStringView)
 end
 
 function BitsX.bit(bs::BitStringView, i::Integer)
-    BitsX.bit(parent(bs), i)
+    bs[i]
+#    BitsX.bit(parent(bs), i)
 end
 
 """
@@ -42,7 +43,7 @@ Return an `AbstractString` view of `v` that represent a sequence of bits.
 
 `v` may be of any type such that `BitsX.to_binary_char` returns a character
 (i.e. does not throw an error) for each element of `v` as determined by
-`BitsX.bitgetindex`.
+`BitsX.bit`.
 
 # Examples
 ```julia-repl
@@ -55,7 +56,7 @@ julia> bitstringview([true, false, true, false])
 julia> bitstringview(UInt8(1 << 4 - 1))
 "00001111"
 
-julia> bitstringview("101") # `bitgetindex` is implemented for binary strings.
+julia> bitstringview("101") # `bit` is implemented for binary strings.
 "101"
 ```
 
@@ -95,6 +96,8 @@ function bitstringview(v, pad::Integer=BitsX.bitlength(v))
     BitStringView{typeof(v)}(v, pad1)
 end
 
+bstringview(v, args...) = bitstringview(v, args...)
+
 #bitstringview(v) = BitStringView{eltype(v), typeof(v)}(v)
 
 """
@@ -110,12 +113,13 @@ Base.parent(sv::BitStringView) = sv.data
 Base.ncodeunits(sv::BitStringView) = sv.len # BitsX.bitlength(parent(sv))
 
 function _getindex(sv, i::Integer)
-    bdiff = BitsX.bitlength(sv.data) - length(sv)
-    BitsX.bitgetindex(parent(sv), i + bdiff)
+    # bdiff = BitsX.bitlength(sv.data) - length(sv)
+    # BitsX.bit(parent(sv), i + bdiff)
+    BitsX.bit(parent(sv), i)
 end
 
 function _getindex(sv, inds)
-    BitsX.bitgetindex(parent(sv), inds)
+    BitsX.bit(parent(sv), inds)
 end
 
 # Called by sizeof, for example

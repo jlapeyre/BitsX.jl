@@ -65,7 +65,8 @@ using .ParseBin: parse_bin
 include("staticbitvectors.jl")
 include("bitvecview.jl")
 include("bitstringview.jl")
-using .BitStringViews: bitstringview, BitStringView, @bsv
+using .BitStringViews: bitstringview, BitStringView, @bsv, bstringview
+export bstringview
 
 # Not useful yet.
 # include("bitconvert.jl")
