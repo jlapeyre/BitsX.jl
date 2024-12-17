@@ -116,7 +116,6 @@ function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true,
         sep || return str
         nsep = 8
     end
-#    nsep = (isa(nsep, Bool) && nsep ? 8 : nsep)
     # Following is much less performant than creating `str`.
     return _BStrings._space_string(str, nsep, pad)
 end
