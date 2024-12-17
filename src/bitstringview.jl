@@ -31,6 +31,10 @@ function Base.show(io::IO, bs::BitStringView)
     print(io, '"')
 end
 
+function BitsX.bit(bs::BitStringView, i::Integer)
+    BitsX.bit(parent(bs), i)
+end
+
 """
    bitstringview(v, [n])
 

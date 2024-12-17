@@ -76,4 +76,8 @@ include("sbitvectors.jl")
 include("bitarraysx.jl")
 import .BitArraysX
 
+include("bstring.jl")
+import .BStrings: bstring
+export bstring
+
 end # module BitsX
