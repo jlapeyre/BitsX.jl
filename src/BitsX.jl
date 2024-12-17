@@ -37,7 +37,7 @@ export is_one_char, is_zero_char, is_binary_char, from_binary_char, to_binary_ch
 export parse_bin
 export BitArrayView, bitvecview, bitmatview, bitarrview, BitVectorView, BitMatrixView
 
-export BitStringView, bitstringview
+export BStringView
 
 export fliporder
 
@@ -56,6 +56,10 @@ const Word = UInt
 
 export SBitArray
 
+include("bstring.jl")
+import .BStrings: bstring
+export bstring
+
 include("bitintegers_extra.jl")
 include("bits.jl")
 
@@ -64,8 +68,8 @@ using .ParseBin: parse_bin
 
 include("staticbitvectors.jl")
 include("bitvecview.jl")
-include("bitstringview.jl")
-using .BitStringViews: bitstringview, BitStringView, @bsv, bstringview
+include("bstringview.jl")
+using .BStringViews: BStringView, @bsv, bstringview
 export bstringview
 
 # Not useful yet.
@@ -77,8 +81,5 @@ include("sbitvectors.jl")
 include("bitarraysx.jl")
 import .BitArraysX
 
-include("bstring.jl")
-import .BStrings: bstring
-export bstring
 
 end # module BitsX

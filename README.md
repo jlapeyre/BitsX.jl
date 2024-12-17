@@ -26,6 +26,7 @@ See the doc strings for these:
 * `tstbit`
 * `tstbit0`
 * `bits`
+* `bstring`
 * `count_bits`
 * `is_bitstring`
 * `bitsizeof`
@@ -45,7 +46,7 @@ See the doc strings for these:
 These also enable efficient conversion.
 
 * `bitvecview`
-* `bitstringview`
+* `bstringview`
 
 #### Some types
 
@@ -54,7 +55,7 @@ These also enable efficient conversion.
 * `StaticBitVector0`
 * `StaticBitVectorN`
 * `BitStringVector`
-* `BitStringView`
+* `BStringView`
 
 #### Some utilites used in this package will be of wider use
 

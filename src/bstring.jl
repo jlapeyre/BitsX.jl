@@ -47,6 +47,7 @@ end
     StringMemory = Base.StringMemory
     trunc_int = Base.trunc_int
     lshr_int = Base.lshr_int
+    bitcast = Base.bitcast
 
     str = StringMemory(sz)
     i = sz

@@ -3,7 +3,7 @@ using BitsX: BitsX, min_bits, undigits, bits, bitsizeof, bitsize,
 
 using BitsX: ZeroBased, OneBased
 
-using BitsX: parse_bin, bitstringview, BitStringView, bitvecview, BitVectorView,
+using BitsX: parse_bin, bstring, bstringview, BStringView, bitvecview, BitVectorView,
     bitmatview
 
 using BitsX: is_one_char, is_zero_char, is_binary_char, binzero, binone, isbinzero, isbinone,

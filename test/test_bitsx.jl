@@ -31,13 +31,13 @@
         n1 = bit_count_ones(x)
         br = bitreverse(x)
         @test n0 + n1 == bitlength(x)
-        s = String(bitstringview(x))
+        s = String(bstringview(x))
         n0s = bit_count_zeros(s)
         n1s = bit_count_ones(s)
         brs = bitreverse(s)
         @test n0s == n0
         @test n1s == n1
-        @test bitstringview(br) == brs
+        @test bstringview(br) == brs
         v = collect(bitvecview(x))
         n0v = bit_count_zeros(v)
         n1v = bit_count_ones(v)
@@ -196,7 +196,7 @@ end
     end
     # TODO: test types defined in BitsX
     ba = [0,1,0,0,1]
-    for bs in ("01001", ba, Bool[ba...], BitVector(ba), bitstringview(ba), Tuple(ba))
+    for bs in ("01001", ba, Bool[ba...], BitVector(ba), bstringview(ba), Tuple(ba))
         @test bitlength(bs) == 5
         @test bitsize(bs) == (5,)
     end
@@ -210,10 +210,10 @@ end
 end
 
 
-@testset "bitstringview" begin
+@testset "bstringview" begin
     v = [1, 0, 1, 0, 0]
-    bs = bitstringview(v)
-    @test bs isa BitStringView
+    bs = bstringview(v)
+    @test bs isa BStringView
     @test bs == "10100"
     @test parent(bs) == v
     @test ncodeunits(bs) == length(v)
@@ -228,21 +228,21 @@ end
     sbs = String(bs)
     @test sbs isa String
     @test [x for x in bs] == [x for x in sbs]
-    @test reverse(bitstringview([1,1,0,0])) == "0011"
-    rev1 = reverse(bitstringview(UInt(1) << 4 - 1, 8))
+    @test reverse(bstringview([1,1,0,0])) == "0011"
+    rev1 = reverse(bstringview(UInt(1) << 4 - 1, 8))
     @test String(rev1) == "00001111"
     @test rev1 == "00001111"
 
-    bs0 = bitstringview(UInt8(1) << 8 - UInt8(1))
+    bs0 = bstringview(UInt8(1) << 8 - UInt8(1))
     @test bs0 == "11111111"
     @test cmp(bs0, "11111111") == 0
 
-    bs1 = bitstringview(UInt64(1) << 8 - UInt64(1), 8)
+    bs1 = bstringview(UInt64(1) << 8 - UInt64(1), 8)
     @test bs1 == "11111111"
     @test cmp(bs1, "11111111") == 0
 
     n = UInt64(1000)
-    bs1 = bitstringview(n)
+    bs1 = bstringview(n)
     sbs1 = "0001011111000000000000000000000000000000000000000000000000000000"
     @test bs1 == sbs1
     @test bs1[1] == '0'
@@ -257,25 +257,30 @@ end
     @test bs1[6:11] == "111110"
     @test String([x for x in bs1]) == bs1
 
-    @test bitstringview(sbs1) == sbs1
-    @test bitstringview(sbs1) !== sbs1
+    @test bstringview(sbs1) == sbs1
+    @test bstringview(sbs1) !== sbs1
 
     t = (1, 1, 0, 0)
-    tv = bitstringview(t)
+    tv = bstringview(t)
     @test tv == "1100"
     @test bitsize(t) == (4, )
 
-    tv1 = bitstringview(BitVector(t))
+    tv1 = bstringview(BitVector(t))
     @test tv1 == "1100"
 
-    bv = bitstringview(5, 4)
+    bv = bstringview(5, 4)
     @test length(bv) == 4
     @test String(bv) == "1010"
     # Get "0000" below
     @test String(bv[1:4]) == "1010"
 
-    bss = bitstringview.([1 2; 3 4], 3)
-    @test string(bss) == "BitStringView{Int64}[\"100\" \"010\"; \"110\" \"001\"]"
+    bss = bstringview.([1 2; 3 4], 3)
+    @test string(bss) == "BStringView{Int64}[\"100\" \"010\"; \"110\" \"001\"]"
+
+    let str = bstring(BitVector(undef, 3))
+        @test isa(str, String)
+        @test length(str) == 3
+    end
 end
 
 @testset "bitvecview" begin

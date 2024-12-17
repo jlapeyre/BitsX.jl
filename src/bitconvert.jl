@@ -1,11 +1,11 @@
 # This is not used. Barely begun
 
-module BitConvert
+# module BitConvert
 
-using Base: CodeUnits
-import ..ParseBin
+# using Base: CodeUnits
+# import ..ParseBin
 
-bitconvert(::Type{T}, data::Union{AbstractString, CodeUnits}; kwargs...) where {T <: Real} =
-    ParseBin.parse_bin(T, data; kwargs...)
+# bitconvert(::Type{T}, data::Union{AbstractString, CodeUnits}; kwargs...) where {T <: Real} =
+#     ParseBin.parse_bin(T, data; kwargs...)
 
-end # module BitConvert
+# end # module BitConvert
