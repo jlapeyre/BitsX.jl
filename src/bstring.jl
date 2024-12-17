@@ -73,24 +73,44 @@ function _String(v::Memory{UInt8}, len::Int)
     return ccall(:jl_genericmemory_to_string, Ref{String}, (Any, Int), v, len)
 end
 
+# This is more than an order of magnitude slower than creating the input string `str`.
+function _space_string(str, nsep, pad)
+#    buf = IOBuffer(UInt8[];sizehint=pad, write=true)
+    buf = IOBuffer()
+    for (i, c) in enumerate(str)
+        write(buf, c)
+        i == pad && break
+        if i % nsep == 0
+            write(buf, ' ')
+        end
+    end
+    String(take!(buf))
+end
+
 end # module _BStrings
 
 import ._BStrings
 
 """
-    bstring(x::T; [pad::Int], rev::Bool=true) where {T}
+    bstring(x::T; [pad::Int], rev::Bool=true, [nsep::Int]) where {T}
 
 Return a string giving the literal bit representation of a primitive type.
 
-If `rev` is `true`, then the string is reversed with respect to `Base.bitstring`.  If
-`pad` is given, then the returned string will have length `pad`.  If `pad` is greater than
+If `rev` is `true`, then the string is reversed with respect to `Base.bitstring`.
+
+If `pad` is given, then the returned string will have length `pad`.  If `pad` is greater than
 the width in bits of `x` then the string will be padded with `'0'`. If `pad` is smaller
 than the width of `x`, then upper bits will be truncated.
+
+If `nsep` is given then a space is inserted every `nsep` bits.
 """
-function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true) where {T}
+function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true, nsep::Union{Int, Nothing}=nothing) where {T}
     isprimitivetype(T) || throw(ArgumentError(LazyString(T, " not a primitive type")))
-    pad == _BStrings._bitsizeof(T) && return _BStrings._bstring(x, rev)
-    return _BStrings._bstring(x, pad, rev)
+    str = (pad == _BStrings._bitsizeof(T) ? _BStrings._bstring(x, rev) :
+        _BStrings._bstring(x, pad, rev))
+    isnothing(nsep) && return str
+    # Following is much less performant than creating `str`.
+    return _BStrings._space_string(str, nsep, pad)
 end
 
 end # module BStrings
