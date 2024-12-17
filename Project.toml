@@ -1,7 +1,7 @@
 name = "BitsX"
 uuid = "d1730f61-8521-49b5-9a1a-56a32d208dc4"
 authors = ["John Lapeyre <jlapeyre@users.noreply.github.com> and contributors"]
-version = "0.6.0"
+version = "0.7.0"
 
 [deps]
 BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
