@@ -11,6 +11,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 [compat]
 Aqua = ">= 0"
 BitIntegers = ">=0.3"
+Documenter = "1.8"
 JET = ">= 0"
 LinearAlgebra = ">= 0"
 Random = ">= 0"
@@ -23,6 +24,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 
 [targets]
-test = ["Test", "Aqua", "JET", "LinearAlgebra"]
+test = ["Test", "Aqua", "JET", "LinearAlgebra", "Documenter"]

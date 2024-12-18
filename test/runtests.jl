@@ -18,9 +18,14 @@ import LinearAlgebra
 
 using Test
 
-# @static if Base.VERSION >= v"1.7"
-#     include("test_jet.jl")
-# end
+import Documenter
+
+Documenter.DocMeta.setdocmeta!(BitsX, :DocTestSetup, :(using BitsX); recursive=true)
+Documenter.doctest(BitsX)
 
 include("test_bitsx.jl")
 include("test_aqua.jl")
+
+# @static if Base.VERSION >= v"1.7"
+#     include("test_jet.jl")
+# end

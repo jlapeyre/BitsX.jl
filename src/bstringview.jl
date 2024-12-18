@@ -48,7 +48,7 @@ Return an `AbstractString` view of `v` that represent a sequence of bits.
 `BitsX.bit`.
 
 # Examples
-```julia-repl
+```jldoctest
 julia> bstringview([1,0,1,1])
 "1011"
 
@@ -70,14 +70,14 @@ If `n` is zero, then the length of the string is the minimum number of bits need
 represent `v`. For example
 
 # Examples
-```julia-repl
+```jldoctest
 julia> length(bstringview(UInt64(7)))
 64
 
 julia> length(bstringview(UInt64(7), 5))
 5
 
-julia> length(bstringview(UInt64(7), 0)
+julia> length(bstringview(UInt64(7), 0))
 3
 
 julia> bstringview(UInt64(7), 0)

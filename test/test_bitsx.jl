@@ -107,14 +107,15 @@ end
     @test is_zero_char(UInt('0'))
     @test !is_zero_char(UInt('1'))
 
-    @test !is_zero_char("zebra")
+    @test_throws MethodError is_zero_char("zebra")
 
     for c in ('0', '1', UInt8('0'), UInt8('1'))
         @test is_binary_char(c)
     end
-    for c in ('a', UInt8('a'), 0, 1, "zebra")
+    for c in ('a', UInt8('a'), 0, 1)
         @test !is_binary_char(c)
     end
+    @test_throws MethodError is_binary_char("zebra")
 
     for c in ("0", "1", cos, complex(1), 1.0, [0, 1])
         @test_throws MethodError binzero(c)

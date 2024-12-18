@@ -3,7 +3,8 @@
 module StaticBitVectors
 
 import ..BitsX._BitsX: _VEC_LIKE, _toVal, ZeroBased, OneBased, IndexBase, BoolOrVal, bit,
-    ZeroBased, OneBased, normalize_bitstring, rightmask, tstbit, undigits
+    ZeroBased, OneBased, normalize_bitstring, rightmask, tstbit, undigits, bitsizeof,
+    bitsize
 
 import ..BitsX.BitIntegersX
 
@@ -26,9 +27,9 @@ omitted, the smallest type capable of representing `dts` is used.  However, supp
 compiler.
 
 # Examples
-```julia-repl
+```jldoctest
 julia> bits((0,1,0,1))
-<0101>
+<1010>
 ```
 """
 function bits(_digits::_VEC_LIKE, n::Int=length(_digits))
@@ -65,9 +66,9 @@ Currently, no bounds check is performed when indexing into the vector.
 julia> v = bits(Int16(2^8+2^4+2+1))
 <00000001 00010011>
 
-julia> permutedims([v[i] for i in 8:-1:1])
-1×8 Array{Bool,2}:
- false  false  false  true  false  false  true  true
+julia> permutedims([v[i] for i in 1:8]) # Use permutedims to show on one line.
+1×8 Matrix{Bool}:
+ 1  1  0  0  1  0  0  0
 
 julia> bits(true)
 <1>
@@ -77,9 +78,12 @@ julia> bits(big(2)^63)
 
 julia> bits(Float32(-7))
 <1|10000001|1100000 00000000 00000000>
+```
 
-julia> ans[1:23] # creates a vector of bits with a specific length
-<1100000 00000000 00000000>
+# FIXME
+# ```jldoctest
+# julia> ans[1:23] # creates a vector of bits with a specific length
+# <1100000 00000000 00000000>
 ```
 """
 bits(x::Real) = StaticBitVectorView(x)
@@ -93,15 +97,12 @@ The underlying data is of type `T`. The truncated bits are zeroed.
 Indexing at positions larger than `n` will not error, but will return zero.
 
 # Examples
-```julia-repl
+```jldoctest
 julia> bits(0x5555)
 <01010101 01010101>
 
 julia> bits(0x5555, 10)
 <01 01010101>
-
-julia> bits(bits(0x5555, 10))
-<00000001 01010101>
 ```
 """
 bits(x::Real, n::Integer) = StaticBitVector(x, n)
@@ -212,7 +213,8 @@ StaticBitVector0(x::T, n::Integer) where T = StaticBitVector0{typeof(x)}(x, n)
 @inline index_base(::Any) = OneBased()
 @inline index_base(::Type{<:StaticBitVector0}) = ZeroBased()
 
-bitlength(x::AbstractStaticBitVector{T}) where T = bitsizeof(T)
+bitsize(x::AbstractStaticBitVector{<:Real}) = bitsize(parent(x))
+bitlength(x::AbstractStaticBitVector) = prod(bitsize(x))
 bitlength(x::AbstractStaticBitVectorLen) = x.len
 # TODO use data_type above ?
 bitsizeof(::Type{<:AbstractStaticBitVector{T}}) where T  = bitsizeof(T)
@@ -236,15 +238,17 @@ function Base.getindex(v::AbstractStaticBitVector, a)
 end
 
 @inline function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVector, a)
-    return StaticBitVector(bitgetindex(v.x, a), length(a))
+    return StaticBitVector(bit(v.x, a), length(a))
 end
 
 function _getindex(::Union{Base.HasLength, Base.HasShape{1}}, v::AbstractStaticBitVectorLen, a::AbstractVector{<:Integer})
-    return typeof(v)(bitgetindex(v.x, a), length(a))
+    return typeof(v)(bit(v.x, a), length(a))
 end
 
+# TODO: This is incorrect sometimes
+# Eg. bits(5)[1:2] fails
 function Base.getindex(v::AbstractStaticBitVector, a::AbstractUnitRange{<:Integer})
-    x = bitgetindex(v.x, a)
+    x = bit(v.x, a)
     v isa AbstractStaticBitVectorLen && return typeof(v)(x, length(a))
     return StaticBitVector(x, length(a))
 end
@@ -363,7 +367,10 @@ function _showsep(io, x::AbstractFloat, i)
 end
 
 function Base.show(io::IO, v::AbstractStaticBitVector)
-    if v.x isa BigInt && v isa StaticBitVector # TODO: not convinced about "infinite" num digits
+    if v.x isa BigInt &&
+        # Hmm. Not sure here about printing dots. Sometimes a `BigInt` has
+        # just 64 bits
+        (isa(v, StaticBitVector) || isa(v, StaticBitVectorView)) # TODO: not convinced about "infinite" num digits
         print(io, "<...", v.x < 0 ? "1 " : "0 ")
     else
         print(io, "<")
@@ -378,7 +385,7 @@ end
 Base.show(io::IO, ::MIME"text/plain", v::AbstractStaticBitVector) = show(io, v)
 
 """
-    bits([T], s::AbstractString)
+    bits([T], s::AbstractString; strip::Bool=false)
 
 Convert the string `s` representing a binary number to a `StaticBitVector`. This method
 can be used to convert the string representation of an `b::StaticBitVector` back to
@@ -392,11 +399,11 @@ specified, the compiler cannot infer the output type which degrades performance.
 Spaces, and the characters '>', '<' are stripped from `s` if `strip` is `true`.
 
 # Examples
-```julia-repl
+```jldoctest
 julia> bits("00101")
 <00101>
 
-julia> bits("<01000000 11111111>")
+julia> bits("<01000000 11111111>"; strip=true)
 <01000000 11111111>
 ```
 """

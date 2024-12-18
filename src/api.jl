@@ -40,7 +40,7 @@ export bstringview, BStringView
 import ..BitsX.ParseBin: parse_bin
 export parse_bin
 
-import ..BitsX.StaticBitVectors: bits, StaticBitVector
-export bits, StaticBitVector
+import ..BitsX.StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
+export bits, StaticBitVector, StaticBitVectorView
 
 end # module API

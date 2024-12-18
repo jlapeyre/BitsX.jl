@@ -20,15 +20,30 @@ const _ONE_CHAR_CODE = UInt8('1')
     is_one_char(x)
 
 Return `true` if `x` is equal to `'1'` or its ASCII code.
+
+# Examples
+```jldoctest
+julia> is_one_char.(('0', '1', 'c', UInt8('0'), UInt8('1'), UInt8('c')))
+(false, true, false, false, true, false)
+
+julia> is_one_char.((Int('1'), 42))
+(true, false)
+```
 """
-is_one_char(x) = x == _ONE_CHAR_CODE
+is_one_char(x::Integer) = x == _ONE_CHAR_CODE
 
 """
     is_zero_char(x)
 
 Return `true` if `x` is equal to `'0'` or its ASCII code.
+
+# Examples
+```jldoctest
+julia> is_zero_char.(('0', '1', 'c', UInt8('0'), UInt8('1'), UInt8('c')))
+(true, false, false, true, false, false)
+```
 """
-is_zero_char(x) = x == _ZERO_CHAR_CODE
+is_zero_char(x::Integer) = x == _ZERO_CHAR_CODE
 is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = is_zero_char(UInt8(x))
 
@@ -36,6 +51,12 @@ is_zero_char(x::Char) = is_zero_char(UInt8(x))
     is_binary_char(x)
 
 Return `true` if `x` is equal to either `'0'` or `'1'` or their ASCII codes.
+
+# Examples
+```jldoctest
+julia> is_binary_char.(('1', Int('1'), '0', 'a', 100))
+(true, true, true, false, false)
+```
 """
 is_binary_char(x) = is_one_char(x) || is_zero_char(x)
 
@@ -50,18 +71,20 @@ Convert `x` to the ASCII code for character `'0'` or `'1'`.  One of `isbinzero(x
 
 `isbinzero` and `isbinone` fall back to `iszero` and `isone` where this makes sense.
 
-If `zero(::T)` and `one(::T)` do not give the a useful result for `T` you can define
-
-
 `T` must implement `iszero` (or `zero`) and `isone` (or `one`). Alternatively, you can
 implement `isbinzero` (or `binzero`) and `isbinone` (or `binone`)
 
+# Examples
+```jldoctest
+julia> to_binary_char_code.((1, '1', true, 0x01, 0, '0', false, 0x00))
+(0x31, 0x31, 0x31, 0x31, 0x30, 0x30, 0x30, 0x30)
+```
 See also [`binzero`](@ref), [`binone`](@ref).
 """
 function to_binary_char_code(x::T) where T
     isbinzero(x) && return _ZERO_CHAR_CODE
     isbinone(x) && return _ONE_CHAR_CODE
-    throw(DomainError(x, "Must be zero or one value of type $T."))
+    throw(DomainError(x, LazyString("Must be zero or one value of type ", T, ".")))
 end
 
 """
@@ -81,17 +104,26 @@ binzero(x) = zero(x)
 
 The value of type `T` representing bit value one.
 
-This sometimes coincides with `one`, which represents the multiplicative identity in
-Julia.
+# Examples
+```jldoctest
+julia> binone.((Char, '-', Int, UInt8, 42))
+('1', '1', 1, 0x01, 1)
+```
 """
 binone(x) = one(x)
 binone(::Type{Char}) = '1'
+binone(::Type{AbstractString}) = "1"
 
 """
-    binzero(::Type{Char})
-    binzero(::{Char})
+    binzero(x)
 
-Return `'0'`.
+The value of type `T` representing bit value zero.
+
+# Examples
+```jldoctest
+julia> binzero.((Char, '-', Int, UInt8, 42))
+('0', '0', 0, 0x00, 0)
+```
 """
 binzero(::Type{Char}) = '0'
 binzero(::Char) = '0'
@@ -134,6 +166,12 @@ isbinzero(x::T) where {T <: AbstractMatrix{<:Integer}} = iszero(x)
 
 Convert `x` to the `Char` `'0'` or `'1'`.
 `x` must be equal to either `binzero(T)` or `binone(T)`.
+
+# Examples
+```jldoctest
+julia> to_binary_char.((1, '1', true, 0x01, 0, '0', false, 0x00))
+('1', '1', '1', '1', '0', '0', '0', '0')
+```
 """
 to_binary_char(x) = Char(to_binary_char_code(x))
 
@@ -144,6 +182,12 @@ from_binary_char(::Type{T}, x::Char) where T = from_binary_char(T, UInt8(x))
 
 Convert the characters `'0'` and `'1'` (or `UInt8('0')` and `UInt8('1')`) to `binzero(T)`
 and `binone(T)`.
+
+# Examples
+```jldoctest
+julia> from_binary_char.(Bool, ('1', UInt8('1'), '0', UInt8('0')))
+(true, true, false, false)
+```
 """
 from_binary_char(::Type{T}, x::UInt8) where T = from_binary_char(T, x, Val(true))
 
@@ -171,6 +215,8 @@ Return a random string of `'1'`s and `'0'`s of length `n`.
 
 The distribution is uniform over all such strings. If `dims` is given
 return an `Array` of random bitstrings with dimensions `dims`.
+
+See also [`randbitstring!`](@ref).
 """
 @inline randbitstring(rng::Random.AbstractRNG, n::Integer) = Random.randstring(rng, (_ZERO_CHAR_CODE, _ONE_CHAR_CODE), n)
 @inline randbitstring(n::Integer, args...) = randbitstring(Random.default_rng(), n, args...)
@@ -201,15 +247,25 @@ end
 # bitsizeof should give how many "addressable" bits are in the object
 # This should be in runtest
 """
-    bitsizeof(T::Type)
+    bitsizeof(::Type{T})
 
-Return the number of indexable bits in an instance of type `T`.
+Return the number of (usefully) indexable bits in an instance of type `T`.
 Here "indexable" means via `bit(x::T, i)`.
+
+For some types, such as `Integer`s, `bit(x::T, i)` returns `0` for `i` greater than
+`bitsizeof(T)`.
 
 If the number of indexable bits in an instance of type `T` cannot be computed
 from the type alone, then an error is thrown.
+
+# Examples
+```jldoctest
+julia> bitsizeof.((UInt8, UInt64, NTuple{5, Int}, StaticBitVectorView{Int64}))
+(8, 64, 5, 64)
+```
 """
-bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
+bitsizeof(::Type{T}) where T = _bitsizeof(Val(isbitstype(T)), T)
+#bitsizeof(T::Type) = _bitsizeof(Val(isbitstype(T)), T)
 bitsizeof(::Type{<:NTuple{N, <:Integer}}) where {N} = N
 const _BITS_PER_BYTE = 8
 _bitsizeof(isbits::Val{true}, T::Type) = sizeof(T) * _BITS_PER_BYTE
@@ -252,7 +308,7 @@ are one, and all bits to the left of the `i`th bit (higher) are zero.
 
 See also [`leftmask`](@ref), `rangemask`, `mask`.
 # Examples
-```julia-repl
+```jldoctest
 julia> bitstring(rightmask(UInt8, 3))
 "00000111"
 ```
@@ -276,7 +332,7 @@ are one, and all bits to the right of the `i`th bit (lower) are zero.
 
 See `rightmask`, `rangemask`, `mask`.
 # Examples
-```julia-repl
+```jldoctest
 julia> bitstring(leftmask(UInt8, 3))
 "11111100"
 ```
@@ -301,7 +357,7 @@ then set bits in each range to one.
 See `leftmask`, `rightmask`, `mask`.
 
 # Examples
-```julia-repl
+```jldoctest
 julia> bitstring(rangemask(UInt8, 2, 7))
 "01111110"
 
@@ -329,7 +385,7 @@ Overlaps between ranges will have their bits set to one.
 
 See `leftmask`, `rightmask`, `rangemask`.
 # Examples
-```julia-repl
+```jldoctest
 julia> bitstring(mask(UInt8, 3))
 "00000100"
 
@@ -366,19 +422,18 @@ asuint(x::AbstractFloat) = reinterpret(Unsigned, x) # Signed gets all the types 
 
 # Taken from Bits.jl
 """
-    masked(x, [j::Integer], i::Integer) -> typeof(x)
+    masked([ib::IndexBase], x::T, inds...) where {T}
 
-TODO: old docs
-Return the result of applying the mask `mask(x, [j], i)` to `x`, i.e.
-`x & mask(x, [j], i)`.
-If `x` is a float, apply the mask to the underlying bits.
+Return the result of applying the mask determined by `inds` to `x`.
+
+That is, return `x & mask(T, inds...)`
 
 # Examples
 ```jldoctest
-julia> masked(0b11110011, 1, 5) === 0b00010010
+julia> masked(0b11110011, 1:5) === 0b00010011
 true
 
-julia> x = rand(); masked(-x, 0, 63) === x
+julia> x = rand(); masked(-x, 1:63) === x
 true
 ```
 """
@@ -599,8 +654,7 @@ left padding.
 `pad=0` omits leading zeros in the output string
 
 # Examples:
-
-```julia-repl
+```jldoctest
 julia> bit_string(128)
 "0000000000000000000000000000000000000000000000000000000010000000"
 
@@ -638,8 +692,8 @@ of `n` (or `bit_str`, or iterable `v`).
 The returned value is the position of the leftmost bit equal to `1`, counting from the right.
 Equivalently, the value is the length of the `bit_str` discounting leading zeros.
 
-# Example
-```julia-repl
+# Examples
+```jldoctest
 julia> min_bits(2^10)
 11
 
@@ -664,12 +718,12 @@ Return the minimum number of "dits" needed to express `v`.
 The first element not representing zero counting from the left determines the
 return value. Input is not validated.
 
-# Example
-```julia-repl
+# Examples
+```jldoctest
 julia> min_dits("03Q")
 2
 
-julia> min_dits([0, 3 , 17])
+julia> min_dits([0, 3, 17])
 2
 ```
 """
