@@ -22,7 +22,8 @@
     @test ! is_bitstring("zebra")
     @test ! is_bitstring("110 011")
     @test is_bitstring(codeunits("110011"))
-    @test_throws ArgumentError is_bitstring("110 011"; throw=true)
+    @test isnothing(check_bitstring(codeunits("110011")))
+    @test_throws ArgumentError check_bitstring("110 011")
     @test count_bits("110011") == 6
     @test count_bits("1z1e0 b 01r1a") == 6
 

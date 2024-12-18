@@ -1,157 +1,163 @@
 module BStrings
 
-module _BStrings
+using ..BitsX._BitsX: bitsizeof
 
-@inline _bitsizeof(::Type{T}) where {T} = 8 * sizeof(T)
-
-# Similar as bitstring, but string is constructed in reverse.
-# Copied from Base.bitstring. This uses non-API functions
-@inline function _bstring(x::T, sz::Int, rev::Bool) where {T}
-    if sz > _bitsizeof(T)
-        str = _inner_bstring!(sz, x, rev)
-        @inbounds for i in sz:-1:(_bitsizeof(T) + 1)
-            str[i] = UInt8('0')
-        end
-        return String(str)
-    end
-
-    _rem = sz % 4
-    if iszero(_rem)
-        str = _inner_bstring!(sz, x, rev)
-        return String(str)
-    end
-
-    _pad  = 4 - _rem
-    _sz = sz + _pad
-    str = _inner_bstring!(_sz, x, rev)
-    # Following might be dangerous.
-    # It is efficient.
-    rev && return _String(str, sz)
-    # This is not so efficient
-    return String(str[1 + _pad:_sz])
+# Need this barrier function, to make the anon func efficient. (probably is another way)
+function _bin(x::Unsigned, len::Int, pad::Bool, sep::Int, rev::Bool)
+    pad && (len = max(len, Base.top_set_bit(x)))
+    __bin(x, len, sep, rev)
 end
 
-@inline function _bstring(x::T, rev::Bool) where {T}
-    sz = 8 * sizeof(T)
-    str = _inner_bstring!(sz, x, rev)
-    return String(str)
+# Return length of string of `len` bits
+# with spaces every `sep` bits.
+function _with_spaces_length(len, sep)
+    iszero(sep) && return len
+    (nspc, r) = divrem(len, sep)
+    iszero(r) && (nspc -= 1)
+    return nspc + len
 end
 
-# Need this barrier function
-@inline function _inner_bstring!(sz, x, rev::Bool)
-    rev ? __inner_bstring!(sz, x, i -> sz - i + 1) : __inner_bstring!(sz, x, identity)
+# Need this barrier function, too.
+@inline  function __bin(x::Unsigned, len::Int, sep::Int, rev::Bool)
+    # If sep != 0, then we need a longer string
+    str_len = _with_spaces_length(len, sep)
+    rev ? ___bin(x, len, str_len, sep, i -> str_len - i + 1) : ___bin(x, len, str_len, sep, identity)
 end
 
-@inline function __inner_bstring!(sz, x::T, indf) where {T}
-    # Exactly the following three items are not exported by base.
+## Following is modified from Base int_funcs.jl
+# `len` is the unconditional number of bits in output string.
+#    If sep==0, then `len` is also the unconditional length of the string
+# `str_len` is the length of the string, which may include spaces if sep!=0
+# `sep` is the number of bits between spaces. If sep==0, then no spaces are written.
+# `indf` is either `identity` or a function reverses indices.
+@inline  function ___bin(x::T, len::Int, str_len, sep::Int, indf) where {T <: Unsigned}
     StringMemory = Base.StringMemory
-    trunc_int = Base.trunc_int
-    lshr_int = Base.lshr_int
-    bitcast = Base.bitcast
 
-    str = StringMemory(sz)
-    i = sz
-    @inbounds while i >= 4
-        b = UInt32(sizeof(T) == 1 ? bitcast(UInt8, x) : trunc_int(UInt8, x))
-        d = 0x30303030 + ((b * 0x08040201) >> 0x3) & 0x01010101
-        # Difference from Base: Indices are complemented wrt. sz
-        str[indf(i-3)] = (d >> 0x00) % UInt8
-        str[indf(i-2)] = (d >> 0x08) % UInt8
-        str[indf(i-1)] = (d >> 0x10) % UInt8
-        str[indf(i)]   = (d >> 0x18) % UInt8
-        x = lshr_int(x, 4)
-        i -= 4
-    end
-    return str
-end
+    n = str_len
+    char_ind = n # The index into the StringMemory
+    a = StringMemory(char_ind)
+    if iszero(sep) # Write no spaces
+        @inbounds while char_ind >= 4
+            b = UInt32((x % UInt8)::UInt8)
+            d = 0x30303030 + ((b * 0x08040201) >> 0x3) & 0x01010101
+            a[indf(char_ind-3)] = (d >> 0x00) % UInt8
+            a[indf(char_ind-2)] = (d >> 0x08) % UInt8
+            a[indf(char_ind-1)] = (d >> 0x10) % UInt8
+            a[indf(char_ind)]   = (d >> 0x18) % UInt8
+            x >>= 0x4
+            char_ind -= 4
+        end
+    else
+        # `bit_ind` is the index of the bit to write. Can be different from `char_ind`.
+        # We track `bit_ind` because we need to track how many characters (including spaces)
+        # have been written, but also, how many bit characters.
+        bit_ind = len
+        @inbounds while bit_ind >= 4
+            b = UInt32((x % UInt8)::UInt8)
+            d = 0x30303030 + ((b * 0x08040201) >> 0x3) & 0x01010101
+            (char_ind, bit_ind) = _writechar(a, indf, sep, char_ind, bit_ind, (d >> 0x18) % UInt8)
+            (char_ind, bit_ind) = _writechar(a, indf, sep, char_ind, bit_ind, (d >> 0x10) % UInt8)
+            (char_ind, bit_ind) = _writechar(a, indf, sep, char_ind, bit_ind, (d >> 0x08) % UInt8)
+            (char_ind, bit_ind) = _writechar(a, indf, sep, char_ind, bit_ind, (d >> 0x00) % UInt8)
 
-# Copied from Base "string.jl"
-# I added the parameter `len`
-function _String(v::Memory{UInt8}, len::Int)
-    len == 0 && return ""
-    len < 0 && error("String length must be non-negative")
-    len <= length(v) || error("Memory not large enough for length")
-    return ccall(:jl_genericmemory_to_string, Ref{String}, (Any, Int), v, len)
-end
-
-# This is more than an order of magnitude slower than creating the input string `str`.
-function _space_string(str, nsep, pad)
-#    buf = IOBuffer(UInt8[];sizehint=pad, write=true)
-    buf = IOBuffer()
-    for (i, c) in enumerate(str)
-        write(buf, c)
-        i == pad && break
-        if i % nsep == 0
-            write(buf, ' ')
+            x >>= 0x4
         end
     end
-    String(take!(buf))
-end
-
-## TODO: following is from Base int_funcs.jl
-## We should use this instead of much of what I have above
-function _bin(x::Unsigned, pad::Int, neg::Bool)
-    m = top_set_bit(x)
-    n = neg + max(pad, m)
-    a = StringMemory(n)
-    # for i in 0x0:UInt(n-1) # automatic vectorization produces redundant codes
-    #     @inbounds a[n - i] = 0x30 + (((x >> i) % UInt8)::UInt8 & 0x1)
-    # end
-    i = n
-    @inbounds while i >= 4
-        b = UInt32((x % UInt8)::UInt8)
-        d = 0x30303030 + ((b * 0x08040201) >> 0x3) & 0x01010101
-        a[i-3] = (d >> 0x00) % UInt8
-        a[i-2] = (d >> 0x08) % UInt8
-        a[i-1] = (d >> 0x10) % UInt8
-        a[i]   = (d >> 0x18) % UInt8
-        x >>= 0x4
-        i -= 4
-    end
-    while i > neg
-        @inbounds a[i] = 0x30 + ((x % UInt8)::UInt8 & 0x1)
+    while char_ind > 0
+        @inbounds a[indf(char_ind)] = 0x30 + ((x % UInt8)::UInt8 & 0x1)
         x >>= 0x1
-        i -= 1
+        char_ind -= 1
     end
-    neg && (@inbounds a[1] = 0x2d) # UInt8('-')
     String(a)
 end
 
-
-end # module _BStrings
-
-import ._BStrings
+# Write a character '0' or '1' to the string.
+# If we have written `sep` bits, then write a space.
+# Return next values of `char_ind` and `bit_ind`
+@inline function _writechar(a, indf, sep, char_ind, bit_ind, char)
+    @inbounds a[indf(char_ind)] = char
+    char_ind -= 1
+    bit_ind -= 1
+    if bit_ind % sep == 0
+        char_ind > 0 || return (char_ind, bit_ind)
+        @inbounds a[indf(char_ind)] = ' '
+        char_ind -= 1
+    end
+    return (char_ind, bit_ind)
+end
 
 """
-    bstring(x::T; [pad::Int], rev::Bool=true, [nsep::Int]) where {T}
+    bstring(x::T; len::Union{Int, Nothing}, rev::Bool=true, sep::Int=0, pad::Bool=false) where {T}
 
 Return a string giving the literal bit representation of a primitive type.
 
 If `rev` is `true`, then the string is reversed with respect to `Base.bitstring`.
 
-If `pad` is given, then the returned string will have length `pad`.  If `pad` is greater than
-the width in bits of `x` then the string will be padded with `'0'`. If `pad` is smaller
+If `len` is not `nothing` and `pad` is `false`, then the returned string will have length `len`. If `len` is greater than
+the width in bits of `x` then the string will be padded with `'0'`. If `len` is smaller
 than the width of `x`, then upper bits will be truncated.
 
-If `nsep` is given then a space is inserted every `nsep` bits.
+If `pad` is `true`, then at least all bits other than leading zeros are written.
+By setting `len` large enough you can write leading zeros as well.
 
-If `sep` is `true` and `nsep` is not given, then `nsep` is set to eight.
-For example, `bstring(x; sep=true)`. This is for convenience in the most common case.
+If `sep` is greater than zero a space is inserted every `sep` bits.
+
+# Examples
+All bits are written by default. Most significant bit is leftmost.
+```jldoctest
+julia> bstring(UInt16(11))
+"1101000000000000"
+```
+
+If `rev` is `false`, the most significant bit is rightmost.
+```jldoctest
+julia> bstring(UInt16(11); rev=false)
+"0000000000001011"
+```
+
+If `pad` is `true`, leading zeros are omitted.
+```jldoctest
+julia> bstring(UInt16(11); pad=true)
+"1101"
+
+julia> bstring(UInt16(11); pad=true, rev=false)
+"1011"
+```
+
+`len` is the number of bits to write.
+```jldoctest
+julia> bstring(UInt16(11); len=8)
+"11010000"
+
+julia> bstring(UInt16(11); len=8, rev=false)
+"00001011"
+
+julia> bstring(UInt16(11); len=3)
+"110"
+```
+
+If `len` is passed and `pad` is `true`, the most significant bit will always be written.
+```jldoctest
+julia> bstring(UInt16(11); len=3, pad=true)
+"1101"
+
+julia> bstring(UInt16(11); len=8, pad=true)
+"11010000"
+```
+
+A space is inserted every `sep` bits.
+```jldoctest
+julia> x = 0xf0ff00aa00; bstring(x; sep=8)
+"00000000 01010101 00000000 11111111 00001111 00000000 00000000 00000000"
+```
 """
-function bstring(x::T; pad::Int=_BStrings._bitsizeof(T), rev::Bool=true,
-                 nsep::Union{Int, Nothing}=nothing, sep::Bool=false) where {T}
+function bstring(x::T; len::Union{Int, Nothing}=nothing, pad::Bool=false, rev::Bool=true,
+                 sep::Int=0) where {T<:Unsigned}
     isprimitivetype(T) || throw(ArgumentError(LazyString(T, " not a primitive type")))
-    str = (pad == _BStrings._bitsizeof(T) ? _BStrings._bstring(x, rev) :
-        _BStrings._bstring(x, pad, rev))
-    if isnothing(nsep)
-        sep || return str
-        nsep = 8
+    if isnothing(len)
+        len = pad ? 1 : bitsizeof(T)
     end
-    # Following is much less performant than creating `str`.
-    return _BStrings._space_string(str, nsep, pad)
+    _bin(x, len, pad, sep, rev)
 end
-
-
-
 
 end # module BStrings

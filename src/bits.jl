@@ -78,6 +78,10 @@ implement `isbinzero` (or `binzero`) and `isbinone` (or `binone`)
 ```jldoctest
 julia> to_binary_char_code.((1, '1', true, 0x01, 0, '0', false, 0x00))
 (0x31, 0x31, 0x31, 0x31, 0x30, 0x30, 0x30, 0x30)
+
+julia> to_binary_char_code(42)
+ERROR: DomainError with 42:
+Must be zero or one value of type Int64.
 ```
 See also [`binzero`](@ref), [`binone`](@ref).
 """
@@ -187,6 +191,9 @@ and `binone(T)`.
 ```jldoctest
 julia> from_binary_char.(Bool, ('1', UInt8('1'), '0', UInt8('0')))
 (true, true, false, false)
+
+julia> from_binary_char('c')
+ERROR: DomainError with 99:
 ```
 """
 from_binary_char(::Type{T}, x::UInt8) where T = from_binary_char(T, x, Val(true))
@@ -208,37 +215,48 @@ from_binary_char(x) = from_binary_char(Bool, x)
 ### randbitstring
 ###
 
-"""
-    randbitstring([rng = default_rng()], n::Integer, [dims])
+# TODO: A much faster way to generate random bits strings than the current implementation
+# is to generate random bits: for example `bstring(rand(UInt))`
+@inline _randbitstring(rng::Random.AbstractRNG, n::Integer) = Random.randstring(rng, (_ZERO_CHAR_CODE, _ONE_CHAR_CODE), n)::String
 
-Return a random string of `'1'`s and `'0'`s of length `n`.
+struct BitStringSampler
+    nbits::Int
+end
+
+# Following causes return eltype to be `String` when returning an array.
+# Otherwise it is `Any`. I think this is not in the API, so this is a bit fragile.
+Base.eltype(::Type{BitStringSampler}) = String
+
+Random.rand(rng::Random.AbstractRNG, d::Random.SamplerTrivial{BitStringSampler})::String = _randbitstring(rng, d[].nbits)::String
+
+"""
+    randbitstring([rng = default_rng()], nbits::Integer, [dims])
+
+Return a random string of `'1'`s and `'0'`s of length `nbits`.
 
 The distribution is uniform over all such strings. If `dims` is given
 return an `Array` of random bitstrings with dimensions `dims`.
 
+# Examples
+```jldoctest
+julia> import Random; rng = Random.seed!(10);
+
+julia> randbitstring(rng, 10)
+"1011110111"
+```
+
 See also [`randbitstring!`](@ref).
 """
-@inline randbitstring(rng::Random.AbstractRNG, n::Integer) = Random.randstring(rng, (_ZERO_CHAR_CODE, _ONE_CHAR_CODE), n)
-@inline randbitstring(n::Integer, args...) = randbitstring(Random.default_rng(), n, args...)
-
-function randbitstring(rng::Random.AbstractRNG, n::Integer, dims::NTuple{N,Int}) where N
-    return randbitstring!(rng, Array{String, N}(undef, dims), n)
-end
+@inline randbitstring(rng::Random.AbstractRNG, nbits::Integer, args...) = rand(rng, BitStringSampler(nbits), args...)
+@inline randbitstring(nbits::Integer, args...) = randbitstring(Random.default_rng(), nbits, args...)
 
 """
-    randbitstring!([rng = default_rng()], a::AbstractArray, n::Integer)
+    randbitstring!([rng = default_rng()], a::AbstractArray, nbits::Integer)
 
 Fill array `a` with random bitstrings.
 """
-randbitstring!(a::AbstractArray, n::Integer) =
-    randbitstring!(Random.default_rng(), a, n)
-
-function randbitstring!(rng::Random.AbstractRNG, a::Array, n::Integer)
-    for i in eachindex(a)
-        @inbounds a[i] = randbitstring(rng, n)
-    end
-    return a
-end
+@inline randbitstring!(rng::Random.AbstractRNG, a::AbstractArray, nbits::Integer) = Random.rand!(rng, a, BitStringSampler(nbits))
+@inline randbitstring!(a::AbstractArray, nbits::Integer) = randbitstring!(Random.default_rng(), a, nbits)
 
 ###
 ### bitsizeof
@@ -262,6 +280,12 @@ from the type alone, then an error is thrown.
 ```jldoctest
 julia> bitsizeof.((UInt8, UInt64, NTuple{5, Int}, StaticBitVectorView{Int64}))
 (8, 64, 5, 64)
+
+julia> bitsizeof(String)
+ERROR: MethodError: no method matching bitsizeof(::Type{String})
+
+julia> bitsizeof(BigInt)
+ERROR: MethodError: no method matching bitsizeof(::Type{BigInt})
 ```
 """
 bitsizeof(::Type{T}) where T = _bitsizeof(Val(isbitstype(T)), T)
@@ -740,21 +764,44 @@ end
 min_dits(v::Integer) = throw(ErrorException("min_dits: use min_bits for $(typeof(v)) input $v"))
 
 """
-    is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}}; throw=false)
+    is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}})
 
-Return `true` if all characters in `bit_str` are either `'0'` or `'1'`,
-otherwise `false`.
-If `throw` is `true`, then throw an `ArgumentError` rather than returning `false`.
+Return `true` if all characters in `bit_str` are either `'0'` or `'1'`, otherwise `false`.
+
+# Examples
+```jldocstring
+julia> is_bitstring("11001100")
+true
+
+julia> is_bitstring("1100 1100")
+false
+```
 """
-function is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}}; throw=false)
-    result = _is_bitstring(bit_str)
-    (throw && !result) && Base.throw(
-        ArgumentError("Argument is not a bit string"))
-    return result
-end
+is_bitstring(s) = count_bits(s) == ncodeunits(s)
+is_bitstring(s::AbstractVector{UInt8}) = count_bits(s) == length(s)
+# Following are usually slower. But there are some mysterious dependencies on string length
+# is_bitstring(v::AbstractVector{UInt8}) = all(is_binary_char, v)
+# is_bitstring(s::AbstractString) = is_bitstring(codeunits(s))
 
-_is_bitstring(v::AbstractVector{UInt8}) = all(is_binary_char, v)
-_is_bitstring(s::AbstractString) = _is_bitstring(codeunits(s))
+"""
+    check_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}})
+
+Throw an `ArgumentError` unless  all characters in `bit_str` are either `'0'` or `'1'`.
+Otherwise return nothing.
+
+# Examples
+```jldocstring
+julia> check_bitstring("11001100")
+true
+
+julia> check_bitstring("1010010b")
+ERROR: ArgumentError: Argument is not a bit string
+```
+"""
+function check_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}})
+    is_bitstring(bit_str) && return nothing
+    throw(ArgumentError("Argument is not a bit string"))
+end
 
 """
     count_bits(s::AbstractString)
@@ -784,6 +831,10 @@ the rightmost bit has index `1`.
 
 For example, for bitstring `x::String` this is equivalent to `x[bitinds]`, but is
 more efficient.
+
+!!! warning "Unstable interface"
+
+`bitgetindex` will likely be removed.
 """
 function bitgetindex end
 
@@ -971,6 +1022,18 @@ bit_count_zeros(v::AbstractArray) = count(iszero, v)
     bitvector(x::Union{Integer, Base.IEEEFloat})
 
 Return a `BitVector` with the bits in `x`.
+
+# Examples
+```jldoctest
+julia> (bitvector(UInt8(11)), )
+(Bool[1, 1, 0, 1, 0, 0, 0, 0],)
+
+julia> bstring(bitvector(UInt64(1<<32 -1)))
+"1111111111111111111111111111111100000000000000000000000000000000"
+
+julia> typeof(bitvector(UInt64(1<<32 -1)))
+BitVector (alias for BitArray{1})
+```
 """
 function bitvector(x::Union{Integer, Base.IEEEFloat})
     _bits = BitArray(undef, 8 * sizeof(x))

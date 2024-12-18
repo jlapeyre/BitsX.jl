@@ -1,22 +1,22 @@
 module API
 
 # utility-like functions
-import ..BitsX._BitsX: is_one_char, is_zero_char, is_binary_char, is_bitstring,
+import ..BitsX._BitsX: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
 
-export is_one_char, is_zero_char, is_binary_char, is_bitstring,
+export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
 
-import ..BitsX._BitsX: randbitstring, randbitstring!, bitsizeof, bitsize,
+import ..BitsX._BitsX: randbitstring, randbitstring!, BitStringSampler, bitsizeof, bitsize,
     bitlength, rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string, min_bits, min_dits, count_bits,
     bitaxes, bitaxes1, biteachindex, bitlastindex,
     bit_count_ones, bit_count_zeros, bitvector
 
-export randbitstring, randbitstring!, bitsizeof, bitsize,
+export randbitstring, randbitstring!, BitStringSampler, bitsizeof, bitsize,
     bitlength, rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string, min_bits, min_dits, count_bits,
@@ -42,5 +42,8 @@ export parse_bin
 
 import ..BitsX.StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
 export bits, StaticBitVector, StaticBitVectorView
+
+import ..BitsX.BitArraysX: BitArrayAlt, Chunks
+export BitArrayAlt, Chunks
 
 end # module API

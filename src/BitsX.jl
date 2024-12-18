@@ -27,12 +27,9 @@ const Word = UInt
 
 export SBitArray
 
-include("bstring.jl")
-# import .BStrings: bstring
-#export bstring
-
 include("bitintegers_extra.jl")
 include("bits.jl")
+include("bstring.jl")
 include("parse.jl")
 #using .ParseBin: parse_bin
 include("staticbitvectors.jl")

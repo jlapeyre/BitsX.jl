@@ -133,7 +133,9 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
         if nc > length(chunks)
             throw(DimensionMismatch("Length of chunks is too small"))
         end
-        nc > 0 && (chunks[end] = T(0))
+        # We don't want to zero the last chunk. Because this clobbers data.
+        # I don't know why they do this.
+#        nc > 0 && (chunks[end] = T(0))
         b = new(chunks, len, dims)
 #        N != 1 && (b.dims = dims)
         return b
@@ -164,15 +166,53 @@ Base.isassigned(B::BitArrayAlt, i::Int) = 1 <= i <= length(B)
     unsafe_bitgetindex_alt(first(size(B)), B.chunks, i)
 end
 
-@inline function get_chunks_id_alt(i, dim1, ::Type{T}) where T
-    bitsz = sizeof(T) * 8
-    (i1, i2) = divrem(i - 1, dim1)
-    (ia, offset) = divrem(i2, bitsz)
-    (a, b) = divrem(dim1, bitsz)
+function _get_block_size(dim1, bitsz)
+    a, b = divrem(dim1, bitsz)
     blksize = iszero(b) ? a : a + 1
-    blk = blksize * i1
-    (blk + ia + 1, offset)
+    blksize
 end
+
+bitsizeof(::Type{T}) where T = sizeof(T) * 8
+
+# Data is a `Vector{T}`.
+# Data is conceptually paritioned into "blocks" of `blksize` elements each.
+# The length in bits of a block is `blksize * bitsizeof(T)`
+# Logically, we want blocks of size `dim1` bits. But we have to pad this
+# to `blksize * bitsizeof(T)` in general.
+# `blk_ind` is the block number starting with zero
+# `blk_bit` is the bit position within the block
+function get_chunks_id_alt(i, dim1, ::Type{T}=UInt8,
+                           blksize=_get_block_size(dim1,bitsizeof(T))) where T
+
+    bitsz = bitsizeof(T)
+
+    # Blocks are sequences of elements of type T, blksize elements in length.
+    # blk_ind is block number. It's 0 for first block
+    #         (ie it is an offset)
+    # blk_bit is the bit pos within the block given by blk_ind
+    (blk_ind, blk_bit) = divrem(i - 1, dim1)
+
+    blk_bit += (blksize * bitsz - dim1)
+
+    # elem_ind is the index of the element within the block
+    # elem_bit is the index of the bit within element given by elem_ind.
+    # These both also start at zero.
+    (elem_ind, elem_bit) = divrem(blk_bit, bitsz)
+
+    blk = blksize * blk_ind
+    elem_ind_in_data = blk + elem_ind + 1
+    (elem_ind_in_data, elem_bit)
+end
+
+# @inline function get_chunks_id_alt(i, dim1, ::Type{T}) where T
+#     bitsz = sizeof(T) * 8
+#     (i1, i2) = divrem(i - 1, dim1)
+#     (ia, offset) = divrem(i2, bitsz)
+#     (a, b) = divrem(dim1, bitsz)
+#     blksize = iszero(b) ? a : a + 1
+#     blk = blksize * i1
+#     (blk + ia + 1, offset)
+# end
 
 @inline function unsafe_bitgetindex_alt(dim1, Bc::Vector{T}, i::Int) where {T<:Unsigned}
     i1, i2 = get_chunks_id_alt(i, dim1, T)
@@ -180,7 +220,5 @@ end
     @inbounds r = (Bc[i1] & u) != 0
     return r
 end
-
-
 
 end # module BitArraysX

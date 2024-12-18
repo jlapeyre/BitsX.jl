@@ -4,7 +4,7 @@
 
 module BitArrayViews
 
-using BitsX._BitsX: bitlength, bitgetindex, is_bitstring, is_one_char
+using BitsX._BitsX: bitlength, bitgetindex, is_one_char, check_bitstring
 
 const _DEFAULT_CHECK = true
 
@@ -20,13 +20,13 @@ struct BitArrayView{V, N, T, ET} <: AbstractArray{V, N}
 
     # TODO: could relax restriction on s, and rely on duck typing
     function BitArrayView{V, ET}(s::Union{AbstractString, Real}, len=bitlength(s); check::Bool=_DEFAULT_CHECK) where {V, ET}
-        check && isa(s, AbstractString) && is_bitstring(s; throw=true)
+        check && isa(s, AbstractString) && check_bitstring(s)
         dims = (len,)
         return new{V, length(dims), typeof(s), ET}(s, dims)
     end
 
     function BitArrayView{V, N, ET}(s::Union{AbstractString, Real}, dims; check::Bool=_DEFAULT_CHECK) where {V, N, ET}
-        check && isa(s, AbstractString) && is_bitstring(s; throw=true)
+        check && isa(s, AbstractString) && check_bitstring(s)
         bitlength(s) >= prod(dims) || throw(DimensionMismatch("Input string length to small for array view"))
         N == length(dims) || throw(DimensionMismatch("dims don't match dimension"))
         return new{V, N, typeof(s), ET}(s, dims)
