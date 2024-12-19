@@ -285,6 +285,15 @@ end
     end
 end
 
+@testset "bstring" begin
+    @test bstring(5; sep=100) == bstring(5)
+    @test bstring(5; sep=0) == bstring(5)
+    @test bstring(5; len=0) == ""
+    @test length(bstring(5; sep=1)) == 127
+    @test_throws ArgumentError bstring(5; len=-1)
+    @test_throws ArgumentError bstring(5; sep=-42)
+end
+
 @testset "bitvecview" begin
     s = "1100"
     v = Bool[1, 1, 0, 0]

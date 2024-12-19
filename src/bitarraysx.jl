@@ -134,11 +134,10 @@ struct BitArrayAlt{T<:Unsigned, N} <: AbstractArray{Bool, N}
             throw(DimensionMismatch("Length of chunks is too small"))
         end
         # We don't want to zero the last chunk. Because this clobbers data.
-        # I don't know why they do this.
-#        nc > 0 && (chunks[end] = T(0))
-        b = new(chunks, len, dims)
-#        N != 1 && (b.dims = dims)
-        return b
+        return new(chunks, len, dims)
+        # This struct is currently immutable
+        # So we can't make the following optimization
+        # N != 1 && (b.dims = dims)
     end
 end
 
@@ -192,6 +191,7 @@ function get_chunks_id_alt(i, dim1, ::Type{T}=UInt8,
     # blk_bit is the bit pos within the block given by blk_ind
     (blk_ind, blk_bit) = divrem(i - 1, dim1)
 
+    # Unused bits are at the beginning of the block. If they were at the end, we'd omit this.
     blk_bit += (blksize * bitsz - dim1)
 
     # elem_ind is the index of the element within the block
@@ -203,16 +203,6 @@ function get_chunks_id_alt(i, dim1, ::Type{T}=UInt8,
     elem_ind_in_data = blk + elem_ind + 1
     (elem_ind_in_data, elem_bit)
 end
-
-# @inline function get_chunks_id_alt(i, dim1, ::Type{T}) where T
-#     bitsz = sizeof(T) * 8
-#     (i1, i2) = divrem(i - 1, dim1)
-#     (ia, offset) = divrem(i2, bitsz)
-#     (a, b) = divrem(dim1, bitsz)
-#     blksize = iszero(b) ? a : a + 1
-#     blk = blksize * i1
-#     (blk + ia + 1, offset)
-# end
 
 @inline function unsafe_bitgetindex_alt(dim1, Bc::Vector{T}, i::Int) where {T<:Unsigned}
     i1, i2 = get_chunks_id_alt(i, dim1, T)
