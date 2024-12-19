@@ -324,6 +324,7 @@ value will be incorrect.
 """
 bitlength(s::AbstractString) = ncodeunits(s)
 
+# TODO: rightmask and leftmask might be better called lomask and himask
 """
     rightmask([T=UInt], i)
 

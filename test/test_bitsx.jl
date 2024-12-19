@@ -1,3 +1,48 @@
+@testset "bitarrayalt" begin
+    balt = BitArrayAlt(Chunks(rand(UInt8, 10)));
+    @test length(balt.chunks) == 10
+    @test eltype(balt) == Bool
+    @test length(balt) == 80
+    @test balt[1] isa Bool
+    @test balt[end] isa Bool
+    @test length([x for x in balt]) == length(balt)
+
+    # We don't want this!
+    @test balt[:] isa Vector{Bool}
+    # We do want this.
+    @test_broken balt[:] isa BitArrayAlt{UInt8}
+
+    balt16 = BitArrayAlt(Chunks(rand(UInt16, 10)))
+    @test length(balt16.chunks) == 10
+    @test length(balt16) == 160
+
+    chunks = Chunks(rand(UInt8, 3 * 10));
+    # Use 21 of the 24 bits in the first dimension
+    balt = BitArrayAlt(chunks, (21, 10))
+
+    # Check that discarding the first 3 bits gives the expeceted result
+    _test_one = (balt, i) -> begin
+        ind = (i-1)*3
+        bstring(balt.chunks[ind+1])[4:end] * bstring(balt.chunks[ind+2])  * bstring(balt.chunks[ind+3]) == bstring(balt[:, i])
+    end
+    @test all(_test_one(balt, i) for i in 1:10)
+end
+
+@testset "bitarrayx" begin
+    ba = BitArrayX{UInt8}(undef, 128)
+    @test length(ba.chunks) == 16
+    @test eltype(ba) == Bool
+    @test length(ba) == 128
+    @test ba[1] isa Bool
+    @test ba[end] isa Bool
+    @test length([x for x in ba]) == 128
+
+    # We don't want this!
+    @test ba[:] isa Vector{Bool}
+    # We do want this.
+    @test_broken ba[:] isa BitArrayX{UInt8}
+end
+
 @testset "more bits.jl" begin
     @test asint(3) === 3
     @test reinterpret(Float64, asint(3.0)) === 3.0

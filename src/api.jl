@@ -43,7 +43,7 @@ export parse_bin
 import ..BitsX.StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
 export bits, StaticBitVector, StaticBitVectorView
 
-import ..BitsX.BitArraysX: BitArrayAlt, Chunks
-export BitArrayAlt, Chunks
+import ..BitsX.BitArraysX: AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
+export AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
 
 end # module API
