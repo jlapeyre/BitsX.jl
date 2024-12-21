@@ -42,6 +42,26 @@ end
     unsafe_bitgetindex(B, i)
 end
 
+@inline function unsafe_bitsetindex!(B::AbstractBitArray, x::Bool, i::Int)
+    i1, i2 = get_chunks_id(B, i)
+    _unsafe_bitsetindex!(B, x, i1, i2)
+end
+
+@inline function Base.setindex!(B::AbstractBitArray, x, i::Int)
+    @boundscheck checkbounds(B, i)
+    unsafe_bitsetindex!(B, convert(Bool, x), i)
+    return B
+end
+
+@inline function _unsafe_bitsetindex!(B::AbstractBitArray{T}, x::Bool, i1::Int, i2::Int) where T
+    u = T(1) << i2
+    Bc = B.chunks
+    @inbounds begin
+        c = Bc[i1]
+        Bc[i1] = ifelse(x, c | u, c & ~u)
+    end
+end
+
 # Test whether the given array has a value associated with index i.
 # Return false if the index is out of bounds, or has an undefined reference.
 Base.isassigned(B::AbstractBitArray, i::Int) = 1 <= i <= length(B)
@@ -50,6 +70,16 @@ Base.isassigned(B::AbstractBitArray, i::Int) = 1 <= i <= length(B)
 ### Chunks
 ###
 
+"""
+    Chunks{T<:Unsigned}
+
+Chunks is a wrapper used to pass data to constructors of `AbstractBitArray`
+that is intended to be used directly as "chunks". If an un-wrapped array is
+passed it is assumed to be interpreted as an array of `Bool`s.
+
+People have discussed constructing `Base.BitArray` by passing chunks. Something
+like `Chunk` would be useful there, to distinguish clearly from existing methods.
+"""
 struct Chunks{T<:Unsigned}
     chunks::Vector{T}
 end
@@ -178,13 +208,60 @@ function num_bit_chunks(::Type{T}, n::Int) where T
     _divX(T, n + bitsizeof(T) - 1)
 end
 
-
 ## TODO: If this is needed, it could be made generic
 ## Perf tests show that this iterator is not needed. But I copied the form from Base.BitArray
 ## custom iterator ##
 function Base.iterate(B::BitArrayX{T}, i::Int=0) where {T}
     i >= length(B) && return nothing
     (B.chunks[_divX(T, i)+1] & (T(1)<<_modX(T, i)) != 0, i+1)
+end
+
+## Indexing: setindex! ##
+
+Base.@propagate_inbounds function setindex!(B::BitArrayX, X::AbstractArray, J0::Union{Colon,AbstractUnitRange{Int}})
+    _setindex!(IndexStyle(B), B, X, to_indices(B, (J0,))[1])
+end
+
+@inline function Base.setindex!(B::BitArrayX{T}, X::AbstractArray, I::BitArrayX{T}) where {T}
+    @boundscheck checkbounds(B, I)
+    _unsafe_setindex!(B, X, I)
+end
+
+# The following does not work for BitArrayAlt without some modification.
+# Quick perf test shows that this is also faster for, say UInt8 and UInt32
+# than using fallback in abstractarrays.jl.
+# Modfied from Base
+# # Assigning an array of bools is more complicated, but we can still do some
+# # work on chunks by combining X and I 64 bits at a time to improve perf by ~40%
+function _unsafe_setindex!(B::BitArrayX{T}, X::AbstractArray, I::BitArrayX{T}) where T
+    Bc = B.chunks
+    Ic = I.chunks
+    length(Bc) == length(Ic) || throw_boundserror(B, I)
+    lc = length(Bc)
+    lx = length(X)
+    last_chunk_len = _modX(T, length(B)-1)+1
+
+    Xi = first(eachindex(X))
+    lastXi = last(eachindex(X))
+    for i = 1:lc
+        @inbounds Imsk = Ic[i]
+        @inbounds C = Bc[i]
+        u = T(1)
+        for j = 1:(i < lc ? bitsizeof(T) : last_chunk_len)
+            if Imsk & u != 0
+                Xi > lastXi && Base.throw_setindex_mismatch(X, count(I))
+                @inbounds x = convert(Bool, X[Xi])
+                C = ifelse(x, C | u, C & ~u)
+                Xi = nextind(X, Xi)
+            end
+            u <<= 1
+        end
+        @inbounds Bc[i] = C
+    end
+    if Xi != nextind(X, lastXi)
+        Base.throw_setindex_mismatch(X, count(I))
+    end
+    return B
 end
 
 ## Unless the following are implemented correctly, to some level of completeness
@@ -242,14 +319,6 @@ end
 const BitVectorAlt{T} = BitArrayAlt{T, 1} where T
 const BitMatrixAlt{T} = BitArrayAlt{T, 2} where T
 
-# Base.length(b::BitArrayAlt) = b.len
-# Base.size(b::BitArrayAlt) = b.dims
-
-# @inline function size(B::BitVectorAlt, d::Integer)
-#     d < 1 && throw_boundserror(size(B), d)
-#     ifelse(d == 1, B.len, 1)
-# end
-
 Base.IndexStyle(::Type{<:BitArrayAlt}) = Base.IndexLinear()
 
 function BitArrayAlt(chunks::Chunks{T}) where T
@@ -264,10 +333,13 @@ function BitArrayAlt(chunks::Chunks{T}, dims::Int...) where T
     BitArrayAlt{T, length(dims)}(chunks, dims...)
 end
 
-function _get_block_size(dim1, bitsz)
-    a, b = divrem(dim1, bitsz)
-    blksize = iszero(b) ? a : a + 1
-    blksize
+# Return the number of elements of type T needed to encode n_coding_bits.
+# For example if T=UInt8, and n_coding_bits = 21, then the results is
+# three. That is three UInt8's per block
+function _get_block_size(::Type{T}, n_coding_bits) where {T<:Unsigned}
+    a, b = divrem(n_coding_bits, bitsizeof(T))
+    block_size = iszero(b) ? a : a + 1
+    block_size
 end
 
 # `blk_ind` is the block number starting with zero
@@ -276,33 +348,33 @@ end
 #   For example: If `n_coding_bits = 21`, and `T=UInt8`, then a block
 #   is three UInt8s, or 24 bits. The first three bits per block are unused.
 # Data is a `Vector{T}`.
-# Data is conceptually paritioned into "blocks" of `blksize` elements each.
-# The length in bits of a block is `blksize * bitsizeof(T)`
+# Data is conceptually paritioned into "blocks" of `block_size` elements each.
+# The length in bits of a block is `block_size * bitsizeof(T)`
 # Logically, we want blocks of size `n_coding_bits` bits. But we have to pad this
-# to `blksize * bitsizeof(T)` in general.
+# to `block_size * bitsizeof(T)` in general.
 function get_chunks_id(B::BitArrayAlt{T}, i) where T
 
     n_coding_bits = first(size(B))
-    blksize = _get_block_size(n_coding_bits, bitsizeof(T))
+    block_size = _get_block_size(T, n_coding_bits)
     bitsz = bitsizeof(T)
 
-    # Blocks are sequences of elements of type T, blksize elements in length.
+    # Blocks are sequences of elements of type T, block_size elements in length.
     # blk_ind is block number. It's 0 for first block
     #         (ie it is an offset)
     # blk_bit is the bit pos within the block given by blk_ind
     (blk_ind, blk_bit) = divrem(i - 1, n_coding_bits)
 
     # Unused bits are at the beginning of the block. If they were at the end, we'd omit this.
-    blk_bit += (blksize * bitsz - n_coding_bits)
+    blk_bit += (block_size * bitsz - n_coding_bits)
 
     # elem_ind is the index of the element within the block
     # elem_bit is the index of the bit within element given by elem_ind.
     # These both also start at zero.
     (elem_ind, elem_bit) = divrem(blk_bit, bitsz)
 
-    blk = blksize * blk_ind
-    elem_ind_in_data = blk + elem_ind + 1
-    (elem_ind_in_data, elem_bit)
+    blk = block_size * blk_ind
+    elem_ind_in_chunks = blk + elem_ind + 1
+    (elem_ind_in_chunks, elem_bit)
 end
 
 end # module BitArraysX

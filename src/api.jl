@@ -14,14 +14,14 @@ import ..BitsX._BitsX: randbitstring, randbitstring!, BitStringSampler, bitsizeo
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string, min_bits, min_dits, count_bits,
     bitaxes, bitaxes1, biteachindex, bitlastindex,
-    bit_count_ones, bit_count_zeros, bitvector
+    bit_count_ones, bit_count_zeros, bitvector, bitarray!, bitarray
 
 export randbitstring, randbitstring!, BitStringSampler, bitsizeof, bitsize,
     bitlength, rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string, min_bits, min_dits, count_bits,
     bitaxes, bitaxes1, biteachindex, bitlastindex,
-    bit_count_ones, bit_count_zeros, bitvector
+    bit_count_ones, bit_count_zeros, bitvector, bitarray!, bitarray
 
 import ..BitsX.BitArrayViews: bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview
 export  bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview

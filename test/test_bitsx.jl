@@ -26,6 +26,11 @@
         bstring(balt.chunks[ind+1])[4:end] * bstring(balt.chunks[ind+2])  * bstring(balt.chunks[ind+3]) == bstring(balt[:, i])
     end
     @test all(_test_one(balt, i) for i in 1:10)
+
+    balt[1] = true;
+    @test balt[1]
+    balt[1] = false;
+    @test ! balt[1]
 end
 
 @testset "bitarrayx" begin
@@ -41,6 +46,11 @@ end
     @test ba[:] isa Vector{Bool}
     # We do want this.
     @test_broken ba[:] isa BitArrayX{UInt8}
+
+    ba[1] = true;
+    @test ba[1]
+    ba[1] = false;
+    @test ! ba[1]
 end
 
 @testset "more bits.jl" begin
