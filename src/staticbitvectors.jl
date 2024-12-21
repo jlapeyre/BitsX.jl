@@ -84,7 +84,7 @@ julia> bits(Float32(-7))
 # ```jldoctest
 # julia> ans[1:23] # creates a vector of bits with a specific length
 # <1100000 00000000 00000000>
-```
+# ```
 """
 bits(x::Real) = StaticBitVectorView(x)
 

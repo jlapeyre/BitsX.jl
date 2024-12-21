@@ -532,7 +532,7 @@ function bit(v, i::Integer; check=true)
     @boundscheck checkbounds(v, i)
     b = @inbounds v[i]
     isone(b) && return 1
-    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    check && !iszero(b) && throw(DomainError(b, lazy"Unrecognized bit $b"))
     return 0
 end
 
@@ -540,7 +540,7 @@ end
 function bit(@nospecialize(v::Tuple), i::Integer; check=true)
     b = v[i]
     isone(b) && return 1
-    check && !iszero(b) && throw(DomainError(b, "Unrecognized bit $b"))
+    check && !iszero(b) && throw(DomainError(b, lazy"Unrecognized bit $b"))
     return 0
 end
 
@@ -762,7 +762,7 @@ function min_dits(v)
     return 0
 end
 
-min_dits(v::Integer) = throw(ErrorException("min_dits: use min_bits for $(typeof(v)) input $v"))
+min_dits(v::Integer) = throw(ErrorException(lazy"min_dits: use min_bits for $(typeof(v)) input $v"))
 
 """
     is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}})
