@@ -1,6 +1,9 @@
 module BitArraysX
 
-export BitArrayX, BitVectorX, Chunks
+export AbstractBitArray, AbstractBitMatrix, AbstractBitVector,
+    BitArrayX, BitVectorX, BitArrayAlt, BitVectorAlt, Chunks
+
+module _BitArraysX
 
 bitsizeof(::Type{T}) where T = sizeof(T) * 8
 
@@ -12,21 +15,21 @@ bitsizeof(::Type{T}) where T = sizeof(T) * 8
 # type. The eltype is always `Bool`.
 abstract type AbstractBitArray{T, N} <: AbstractArray{Bool, N} end
 
-## Type aliases for convenience ##
-"""
-    AbstractBitVector{T}
+# """
+#     AbstractBitVector{T}
 
-Supertype for one-dimensional arrays (or array-like types) with
-elements of type `T`. Alias for [`AbstractBitArray{T,1}`](@ref).
-"""
+# Supertype for one-dimensional arrays (or array-like types) with
+# elements of type `T`. Alias for [`AbstractBitArray{T,1}`](@ref).
+# """
 const AbstractBitVector{T} = AbstractBitArray{T,1}
 
-"""
-    AbstractBitMatrix{T}
+# """
+#     AbstractBitMatrix{T}
 
-Supertype for two-dimensional arrays (or array-like types) with
-elements of type `T`. Alias for [`AbstractBitArray{T,2}`](@ref).
-"""
+# Not a good doc string.
+# Supertype for two-dimensional arrays (or array-like types) with
+# elements of type `T`. Alias for [`AbstractBitArray{T,2}`](@ref).
+# """
 const AbstractBitMatrix{T} = AbstractBitArray{T,2}
 
 @inline function unsafe_bitgetindex(B::AbstractBitArray{T}, i::Int) where T
@@ -70,16 +73,16 @@ Base.isassigned(B::AbstractBitArray, i::Int) = 1 <= i <= length(B)
 ### Chunks
 ###
 
-"""
-    Chunks{T<:Unsigned}
+# """
+#     Chunks{T<:Unsigned}
 
-Chunks is a wrapper used to pass data to constructors of `AbstractBitArray`
-that is intended to be used directly as "chunks". If an un-wrapped array is
-passed it is assumed to be interpreted as an array of `Bool`s.
+# Chunks is a wrapper used to pass data to constructors of `AbstractBitArray`
+# that is intended to be used directly as "chunks". If an un-wrapped array is
+# passed it is assumed to be interpreted as an array of `Bool`s.
 
-People have discussed constructing `Base.BitArray` by passing chunks. Something
-like `Chunk` would be useful there, to distinguish clearly from existing methods.
-"""
+# People have discussed constructing `Base.BitArray` by passing chunks. Something
+# like `Chunk` would be useful there, to distinguish clearly from existing methods.
+# """
 struct Chunks{T<:Unsigned}
     chunks::Vector{T}
 end
@@ -376,5 +379,24 @@ function get_chunks_id(B::BitArrayAlt{T}, i) where T
     elem_ind_in_chunks = blk + elem_ind + 1
     (elem_ind_in_chunks, elem_bit)
 end
+
+end #module _BitArraysX
+
+import ._BitArraysX: AbstractBitArray, AbstractBitMatrix, AbstractBitVector,
+    BitArrayX, BitVectorX, Chunks, BitArrayAlt, BitVectorX, BitVectorAlt,
+    BitMatrixAlt, BitMatrixX
+
+"""
+    Chunks{T<:Unsigned}
+
+Chunks is a wrapper used to pass data to constructors of `AbstractBitArray`
+that is intended to be used directly as "chunks". If an un-wrapped array is
+passed it is assumed to be interpreted as an array of `Bool`s.
+
+People have discussed constructing `Base.BitArray` by passing chunks. Something
+like `Chunk` would be useful there, to distinguish clearly from existing methods.
+"""
+Chunks
+
 
 end # module BitArraysX

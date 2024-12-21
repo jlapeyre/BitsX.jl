@@ -1,20 +1,18 @@
 module BStringViews
 
-import ..BitsX.BStrings
-import ..BitsX._BitsX as BitsX
 
 
 # Maybe @bsv should be removed, or have a different name
 export BStringView, @bsv, bstringview
 
-# TODO: length and field `len` is working correctly everywhere.
+import ...BitsX.BitsBase
 
 struct BStringView{AT} <: AbstractString
     data::AT
     len::Int
 
     function BStringView{AT}(data::AT, len::Integer) where AT
-        (len > BitsX.bitlength(data) || len < 0) &&
+        (len > BitsBase.bitlength(data) || len < 0) &&
             throw(DomainError(len, "Length of BStringView out of range for data type."))
         new{AT}(data, len)
     end
@@ -22,30 +20,24 @@ end
 
 BStringView(data, len) = BStringView{typeof(data)}(data, len)
 
-function Base.show(bs::BStringView)
-    Base.show(stdout, bs)
-end
-function Base.show(io::IO, bs::BStringView)
-    print(io, '"')
-    for c in bs
-        print(io, c)
-    end
-    print(io, '"')
+"""
+    @bsv ex
+
+Return `bstringview(ex)`.
+"""
+macro bsv(expr)
+    :(bstringview($expr))
 end
 
-function BitsX.bit(bs::BStringView, i::Integer)
-    bs[i]
-#    BitsX.bit(parent(bs), i)
-end
 
 """
    bstringview(v, [n])
 
 Return an `AbstractString` view of `v` that represent a sequence of bits.
 
-`v` may be of any type such that `BitsX.to_binary_char` returns a character
+`v` may be of any type such that `BitsBase.to_binary_char` returns a character
 (i.e. does not throw an error) for each element of `v` as determined by
-`BitsX.bit`.
+`Bits.bit`.
 
 # Examples
 ```jldoctest
@@ -89,53 +81,68 @@ julia> bstringview(UInt16(7))
 
 `String(bstringview(v))` converts `v` to a `String.
 """
-function bstringview(v, pad::Integer=BitsX.bitlength(v))
+function bstringview(v, pad::Integer=BitsBase.bitlength(v))
     if iszero(pad)
-        pad1 = BitsX.min_bits(v)
+        pad1 = BitsBase.min_bits(v)
     else
         pad1 = Int(pad)
     end
     BStringView{typeof(v)}(v, pad1)
 end
 
-# bstringview(v, args...) = bstringview(v, args...)
+module _BStringViews
+
+import ...BitsX.BStrings
+import ...BitsX.BitsBase
+import ...BitsX.Bits
+
+import ..BStringViews: BStringView, bstringview
+
+# TODO: length and field `len` is working correctly everywhere.
+
+function Base.show(bs::BStringView)
+    Base.show(stdout, bs)
+end
+function Base.show(io::IO, bs::BStringView)
+    print(io, '"')
+    for c in bs
+        print(io, c)
+    end
+    print(io, '"')
+end
+
+function Bits.bit(bs::BStringView, i::Integer)
+    bs[i]
+#    BitsBase.bit(parent(bs), i)
+end
 
 # A fallback method to convert an array of bools to a
 # binary string.
 BStrings.bstring(v::AbstractArray) = String(bstringview(v))
 
-"""
-    @bsv ex
-
-Return `bstringview(ex)`.
-"""
-macro bsv(expr)
-    :(bstringview($expr))
-end
-
 Base.parent(sv::BStringView) = sv.data
-Base.ncodeunits(sv::BStringView) = sv.len # BitsX.bitlength(parent(sv))
+Base.ncodeunits(sv::BStringView) = sv.len # BitsBase.bitlength(parent(sv))
 
 function _getindex(sv, i::Integer)
-    # bdiff = BitsX.bitlength(sv.data) - length(sv)
-    # BitsX.bit(parent(sv), i + bdiff)
-    BitsX.bit(parent(sv), i)
+    # bdiff = BitsBase.bitlength(sv.data) - length(sv)
+    # Bits.bit(parent(sv), i + bdiff)
+    Bits.bit(parent(sv), i)
 end
 
 function _getindex(sv, inds)
-    BitsX.bit(parent(sv), inds)
+    Bits.bit(parent(sv), inds)
 end
 
 # Called by sizeof, for example
 Base.codeunit(sv::BStringView) = UInt8
-Base.codeunit(sv::BStringView, i::Integer) = BitsX.to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
+Base.codeunit(sv::BStringView, i::Integer) = BitsBase.to_binary_char_code(_getindex(sv, i)) #  % codeunit(sv)
 
-Base.isvalid(sv::BStringView, i::Integer) = in(i, BitsX.bitaxes1(parent(sv)))
+Base.isvalid(sv::BStringView, i::Integer) = in(i, BitsBase.bitaxes1(parent(sv)))
 Base.length(sv::BStringView) = sv.len # bitlength(parent(sv))
 
 function Base.getindex(sv::BStringView, i::Integer)
     @boundscheck checkbounds(sv, i)
-    @inbounds BitsX.to_binary_char(_getindex(sv, i))
+    @inbounds BitsBase.to_binary_char(_getindex(sv, i))
 end
 
 @inline function Base.getindex(sv::BStringView, v::AbstractVector{<:Integer})
@@ -155,7 +162,7 @@ end
 
 # Warning! non-"1 based vectors" might fail here
 @inline function Base.iterate(bv::BStringView, i::Int=firstindex(parent(bv)))
-#    if (i % UInt) - 1 < BitsX.bitlastindex(parent(bv))
+#    if (i % UInt) - 1 < BitsBase.bitlastindex(parent(bv))
     if (i % UInt) - 1 < bv.len
         (@inbounds bv[i], i + 1)
     else
@@ -174,7 +181,6 @@ for func in (:reverse, :reverse!)
     @eval Base.$(func)(bv::BStringView, args...) = bstringview(Base.$(func)(parent(bv), args...), length(bv))
 end
 
-
 # Removed following line because it causes a several second hang in the REPL after loading this package
 # and pressing any key.
 #
@@ -184,5 +190,8 @@ end
 # Base._str_sizehint(b::BStringView) = sizeof(b)
 
 Base.String(bs::BStringView) = String(copyto!(Base.StringVector(length(bs)), codeunits(bs)))
+
+end # module _BStringViews
+
 
 end # module BStringViews

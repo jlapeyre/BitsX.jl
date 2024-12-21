@@ -1,35 +1,37 @@
 module API
 
-# utility-like functions
-import ..BitsX._BitsX: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
+import ..BitsX.BitsBase
+export BitsBase
+
+import ..BitsX.BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
+    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
+    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits
 
 export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
+    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
+    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits
 
-import ..BitsX._BitsX: randbitstring, randbitstring!, BitStringSampler, bitsizeof, bitsize,
-    bitlength, rightmask, leftmask, rangemask, mask, masked, bit,
+import ..BitsX.Bits: randbitstring, randbitstring!, BitStringSampler,
+    rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
-    bit_string, min_bits, min_dits, count_bits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex,
-    bit_count_ones, bit_count_zeros, bitvector, bitarray!, bitarray
+    bit_string,
+    bit_count_ones, bit_count_zeros
 
-export randbitstring, randbitstring!, BitStringSampler, bitsizeof, bitsize,
-    bitlength, rightmask, leftmask, rangemask, mask, masked, bit,
+export randbitstring, randbitstring!, BitStringSampler,
+    rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
-    bit_string, min_bits, min_dits, count_bits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex,
-    bit_count_ones, bit_count_zeros, bitvector, bitarray!, bitarray
+    bit_string,
+    bit_count_ones, bit_count_zeros
+
+import ..BitsX.BitArrays: bitvector, bitarray, bitarray!
+export bitvector, bitarray, bitarray!
 
 import ..BitsX.BitArrayViews: bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview
 export  bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview
 
 # I need bit_reverse, or breverse. I currently type-pirate bitreverse.
-# These should be considered. But less likely to use in API
-# import ..BitsX: asint, asuint, unsafe_tstbit, bitgetindex, fliporder,
-# export asint, asuint
 
 import ..BitsX.BStrings: bstring
 export bstring
@@ -45,5 +47,8 @@ export bits, StaticBitVector, StaticBitVectorView
 
 import ..BitsX.BitArraysX: AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
 export AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
+
+import ..BitsX.BitIntegersX
+export BitIntegersX
 
 end # module API

@@ -10,7 +10,7 @@
 # using BitsX: rightmask, leftmask, mask, rangemask, asint, biteachindex, bit, normalize_bitstring
 # using BitsX: randbitstring, randbitstring!
 
-using BitsX._BitsX: asuint, asint
+using BitsX.BitsBase: asuint, asint
 
 using BitsX
 import BitsX.BitIntegersX

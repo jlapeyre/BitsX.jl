@@ -4,9 +4,15 @@
 
 module BitArrayViews
 
-using BitsX._BitsX: bitlength, bitgetindex, is_one_char, check_bitstring
+#using BitsX._BitsX: bitlength, bitgetindex, is_one_char, check_bitstring
+using BitsX.BitsBase: bitlength, is_one_char, check_bitstring
+using BitsX.Bits: bitgetindex
 
+module _BitArrayViews
 const _DEFAULT_CHECK = true
+end # module _BitArrayViews
+
+import ._BitArrayViews: _DEFAULT_CHECK
 
 """
     BitArrayView{V, N, T} <: AbstractArray{V, N}

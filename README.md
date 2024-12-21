@@ -64,3 +64,7 @@ These also enable efficient conversion.
 * `to_binary_char_code`
 * `from_binary_char_code`
 * `from_binary_char`
+
+### Other packages related to bit manipulation
+
+* [BitFlags.jl](https://github.com/jmert/BitFlags.jl)

@@ -1,6 +1,9 @@
 module BStrings
 
-using ..BitsX._BitsX: bitsizeof
+module _BStrings
+# TODO: putthis back
+#using ..BitsX.BitsBase: bitsizeof
+bitsizeof(::Type{T}) where T = 8 * sizeof(T)
 
 # Need this barrier function, to make the anon func efficient. (probably is another way)
 function _bin(x, len::Int, pad::Bool, sep::Int, rev::Bool)
@@ -119,6 +122,10 @@ end
     end
     return (char_ind, bit_ind)
 end
+
+end  # module _BStrings
+
+import ._BStrings: bitsizeof, _bin
 
 """
     bstring(x::T; len::Union{Int, Nothing}, rev::Bool=true, sep::Int=0, pad::Bool=false)

@@ -1,14 +1,20 @@
 #  This name is misleading
-
 module StaticBitVectors
 
-import ..BitsX._BitsX: _VEC_LIKE, _toVal, ZeroBased, OneBased, IndexBase, BoolOrVal, bit,
-    ZeroBased, OneBased, normalize_bitstring, rightmask, tstbit, undigits, bitsizeof,
-    bitsize
+module _StaticBitVectors
 
-import ..BitsX.BitIntegersX
+import ...BitsX.Bits: bit, normalize_bitstring, undigits, tstbit, rightmask
 
-import ..BitsX.ParseBin: parse_bin
+import ...BitsX.BitsBase._BitsBase: _BitsBase, _toVal, BoolOrVal
+
+import ...BitsX.BitsBase: ZeroBased, OneBased, IndexBase,
+    ZeroBased, OneBased, bitsizeof, bitsize
+
+import ...BitsX.BitIntegersX
+import ...BitsX.ParseBin: parse_bin
+
+# TODO: what do we expect that this supports? Can you index into Generator ? No.
+const _VEC_LIKE = Union{AbstractVector{<:Integer}, NTuple{<:Any, <:Integer}, Base.Generator{<:AbstractVector}}
 
 # TODO: We could also store the bits in a Tuple of values
 
@@ -79,14 +85,15 @@ julia> bits(big(2)^63)
 julia> bits(Float32(-7))
 <1|10000001|1100000 00000000 00000000>
 ```
+"""
+bits(x::Real) = StaticBitVectorView(x)
 
-# FIXME
+# FIXME from above
 # ```jldoctest
 # julia> ans[1:23] # creates a vector of bits with a specific length
 # <1100000 00000000 00000000>
 # ```
-"""
-bits(x::Real) = StaticBitVectorView(x)
+
 
 """
     bits(x::T, n) where {T<:Real}
@@ -474,5 +481,10 @@ Base.convert(::Type{StaticBitVectorView{T}}, x::StaticBitVectorView{T}) where T 
 # We use more general methods now
 # bitgetindex(::Type{T}, x::T, bitinds) where {T<:AbstractStaticBitVector} = x[bitinds]
 # bitgetindex(x::AbstractVector{Bool}, bitinds) = x[bitinds]
+
+end  # module _StaticBitVectors
+
+import ._StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
+export bits, StaticBitVector, StaticBitVectorView
 
 end # module StaticBitVectors
