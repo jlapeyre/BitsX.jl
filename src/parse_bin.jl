@@ -111,6 +111,10 @@ Leading zeros are included in the calculation of the width of the resulting inte
 If `filter` is `true`, then characters other than `'1'` and `'0'` are ignored rather than raising an error. In
 this way, formatting, such as spaces, may be included in the input string.
 
+!!! warning "Ascii only"
+    Non-ascii characters in the bitstring, even with `filter=true` will probably result in an error or incorrect results.
+
+
 # Examples
 ```jldoctest
 julia> parse_bin(UInt8, "10001111") |> bitstring
@@ -147,6 +151,17 @@ julia> x = parse_bin(Integer, s); (x, typeof(x))
 
 julia> x = parse_bin(BigInt, s); (x, typeof(x))
 (7940, BigInt)
+```
+
+!!! warning
+    If characters other than '0' and '1' are present and `filter=true`, then the minimum bit width may be computed incorrectly.
+    However if `T` is a bitstype, then no minimum bit width need be computed.
+```jldoctest
+julia> parse_bin("1"^8; filter=true)
+0xff
+
+julia> parse_bin("1"^8 * " "^8; filter=true)
+0x00ff
 ```
 
 # Extended help
