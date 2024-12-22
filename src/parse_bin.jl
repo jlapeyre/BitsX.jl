@@ -57,6 +57,21 @@ length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c)
     return x
 end
 
+# Routine for: 1) No precomputed masks available, 2) assume strict bitstring
+__parse_bin(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
+function __parse_bin(::Type{T}, c)::T where T
+    x::T = zero(T)
+    one_bit_mask::T = one(T)
+    nmax = lastindex(c)
+    @inbounds for i in eachindex(c)
+        if is_one_char(c[nmax - i + 1]::UInt8)
+            x += one_bit_mask
+        end
+        one_bit_mask *= 2
+    end
+    return x
+end
+
 # TODO:  prefer reverse(eachindex(c))
 __parse_bin_permissive(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
 function __parse_bin_permissive(::Type{T}, c)::T where T
@@ -72,20 +87,6 @@ function __parse_bin_permissive(::Type{T}, c)::T where T
         elseif is_zero_char(ch)
             one_bit_mask *= 2
         end
-    end
-    return x
-end
-
-__parse_bin(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
-function __parse_bin(::Type{T}, c)::T where T
-    x::T = zero(T)
-    one_bit_mask::T = one(T)
-    nmax = lastindex(c)
-    @inbounds for i in eachindex(c)
-        if is_one_char(c[nmax - i + 1]::UInt8)
-            x += one_bit_mask
-        end
-        one_bit_mask *= 2
     end
     return x
 end
