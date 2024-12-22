@@ -22,7 +22,7 @@ _min_uint_type(v::AbstractVector{UInt8}) = min_uint_type(length(v))
 _length_in_UInt8(s::AbstractString) = ncodeunits(s) # not all AbstractString
 _length_in_UInt8(v::AbstractVector{UInt8}) = length(v)
 
-_parse_bin(::Type{T}, s::AbstractString, filter) where T = _parse_bin(T, codeunits(s), filter)
+_parse_bin(::Type{T}, s::AbstractString, filter, rev_func::F) where {T, F} = _parse_bin(T, codeunits(s), filter, rev_func)
 
 # The permissive option differs in two ways:
 # 1. it permits chars other than '1' and '0'
@@ -33,21 +33,24 @@ _parse_bin(::Type{T}, s::AbstractString, filter) where T = _parse_bin(T, codeuni
 # But it's probably worth doing, since the differences can be large.
 # We would want to implement a routine that is both strict and computes masks on the fly.
 # This is very easy. But there's no reason to do it until we can discriminate which to use.
-function _parse_bin(::Type{T}, c::AbstractVector{UInt8}, filter::Bool) where T
-    return filter ? __parse_bin_permissive(T, c)::T :
-        __parse_bin(T, c, get_one_bit_masks(T))::T
+#
+# Annotation on `rev_func::F` here is necessary for inference, to avoid 10x perf loss.
+# I annotated in other signatures for _parse_bin and __parse_bin, but did not check if necessary.
+function _parse_bin(::Type{T}, c::AbstractVector{UInt8}, filter::Bool, rev_func::F) where {T, F<:Function}
+    return filter ? __parse_bin_permissive(T, c, rev_func)::T :
+        __parse_bin(T, c, get_one_bit_masks(T), rev_func)::T
 end
 
 _parse_via_BigInt(::Type{T}, c::CodeUnits) where T = _parse_via_BigInt(T, c.s)
 _parse_via_BigInt(::Type{T}, s::AbstractString) where T = T(parse(BigInt, _ensure_string(s_or_c); base=2))
 
 # c - code units, (or Vector{UInt8}, but unsafe_wrap allocates, codeunits does not)
-@inline function __parse_bin(::Type{T}, c, one_bit_masks)::T where {T}
+@inline function __parse_bin(::Type{T}, c, one_bit_masks, rev_func::F)::T where {T, F}
     x::T = zero(T)
 length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c))) # This line increases perf.
     nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        ch::UInt8 = c[nmax - i + 1]
+        ch::UInt8 = c[rev_func(nmax - i + 1)]
         if is_one_char(ch)
             x::T += one_bit_masks[i]::T
         elseif ! is_zero_char(ch)
@@ -58,13 +61,13 @@ length(one_bit_masks) >= length(c) || throw(BoundsError(one_bit_masks, length(c)
 end
 
 # Routine for: 1) No precomputed masks available, 2) assume strict bitstring
-__parse_bin(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
-function __parse_bin(::Type{T}, c)::T where T
+__parse_bin(::Type{T}, c, ::Nothing, rev_func::F) where {T, F} = __parse_bin(T, c, rev_func) # get_masks returns nothing if masks not available
+function __parse_bin(::Type{T}, c, rev_func::F)::T where {T, F}
     x::T = zero(T)
     one_bit_mask::T = one(T)
     nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        if is_one_char(c[nmax - i + 1]::UInt8)
+        if is_one_char(c[rev_func(nmax - i + 1)]::UInt8)
             x += one_bit_mask
         end
         one_bit_mask *= 2
@@ -73,13 +76,13 @@ function __parse_bin(::Type{T}, c)::T where T
 end
 
 # TODO:  prefer reverse(eachindex(c))
-__parse_bin_permissive(::Type{T}, c, ::Nothing) where T = __parse_bin(T, c) # get_masks returns nothing if masks not available
-function __parse_bin_permissive(::Type{T}, c)::T where T
+__parse_bin_permissive(::Type{T}, c, ::Nothing, rev_func::F) where {T, F} = __parse_bin(T, c, rev_func) # get_masks returns nothing if masks not available
+function __parse_bin_permissive(::Type{T}, c, rev_func::F)::T where {T, F}
     x::T = zero(T)
     one_bit_mask::T = one(T)
     nmax = lastindex(c)
     @inbounds for i in eachindex(c)
-        ch = c[nmax - i + 1]::UInt8
+        ch = c[rev_func(nmax - i + 1)]::UInt8
         if is_one_char(ch)
             x += one_bit_mask
             i == nmax && break
@@ -96,7 +99,7 @@ end  # module _ParseBin
 import ._ParseBin: _parse_bin, _min_uint_type, _length_in_UInt8
 
 """
-    parse_bin([::Type{T}], s::Union{AbstractString, AbstractVector{UInt8}}; filter=false)
+    parse_bin([::Type{T}], s::Union{AbstractString, AbstractVector{UInt8}}; filter=false, rev=false)
 
 Convert an integer coded as a binary string (characters `'1'` and `'0'`) to an unsigned integer.
 
@@ -110,6 +113,8 @@ Leading zeros are included in the calculation of the width of the resulting inte
 
 If `filter` is `true`, then characters other than `'1'` and `'0'` are ignored rather than raising an error. In
 this way, formatting, such as spaces, may be included in the input string.
+
+If `rev` is `true` then the string is parsed from right to left rather than left to right. This incurrs no performance penalty.
 
 !!! warning "Ascii only"
     Non-ascii characters in the bitstring, even with `filter=true` will probably result in an error or incorrect results.
@@ -125,6 +130,9 @@ ERROR: BoundsError: attempt to access 8-element Vector{UInt8} at index [9]
 
 julia> parse_bin(UInt8, "10 00 11 11"; filter=true) |> bitstring
 "10001111"
+
+julia> parse_bin(UInt8, "10001111"; rev=true) |> bitstring
+"11110001"
 
 julia> parse_bin(Bool, "1")
 true
@@ -162,6 +170,9 @@ julia> parse_bin("1"^8; filter=true)
 
 julia> parse_bin("1"^8 * " "^8; filter=true)
 0x00ff
+
+julia> parse_bin(UInt8, "1"^8 * " "^8; filter=true)
+0xff
 ```
 
 # Extended help
@@ -169,8 +180,9 @@ julia> parse_bin("1"^8 * " "^8; filter=true)
 # Comparison with `Base.parse`
 
 * `parse_bin` is roughly 5 to 10 faster.
-* `parse_bin` can optionally ignore non-coding characters in the string
+* `parse_bin` can optionally ignore non-coding characters (formatting, for example) in the string
 * `parse_bin` can accept `AbstractVector{UInt8}` as input.
+* `parse_bin` can parse the characters in reverse order (at no performance cost).
 
 # Performance
 
@@ -178,50 +190,69 @@ Usually `parse_bin` is faster than `Base.parse`. The factor varies from about 5 
 larger than about 650, `parse_bin` first parses the string as a `BigInt` using `Base.parse` and then converts
 to the appropriate fixed-wdith unsigned integer type.
 
-`parse_bin` is often much faster if `T` is supplied.
+`parse_bin` is often much faster if `T` is supplied because otherwise the return type cannot be inferred.
 """
-@inline parse_bin(s; filter::Bool=false) = parse_bin(_min_uint_type(s), s; filter=filter)
+@inline parse_bin(s; filter::Bool=false, rev::Bool=false) = parse_bin(_min_uint_type(s), s; filter, rev)
 
 # For concrete subtypes of T, bitwidth is known, and we first use bit-equiv unsigned
-@inline function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: Union{AbstractFloat, Signed}}
-    return reinterpret(T, parse_bin(Base.uinttype(T), s_or_c; filter=filter))
+@inline function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false) where {T <: Union{AbstractFloat, Signed}}
+    return reinterpret(T, parse_bin(Base.uinttype(T), s_or_c; filter, rev))
 end
 
-function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where T
+function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false) where T
     BigInt_better_thresh = 650 # approx.
-    if _length_in_UInt8(s_or_c) > BigInt_better_thresh
+    if (_length_in_UInt8(s_or_c) > BigInt_better_thresh)
+        if rev
+            s_or_c = reverse(s_or_c)
+        end
         return T(parse(BigInt, s_or_c; base=2)) # TODO: do filtering if requested
     end
-    _parse_bin(T, s_or_c, filter)::T
+    _parse_bin(T, s_or_c, filter, _rev_func(rev, s_or_c))::T
+end
+
+function _rev_func(rev::Bool, str)
+    if rev
+#        return ind -> length(str) - ind + 1
+        let nlen = length(str)
+            return ind -> nlen - ind + 1
+        end
+    end
+    return identity
 end
 
 # Types Unsigned and Integer,  return the min-width unsigned int
 # I tried signatues to make a single method, but was unable to get all cases correct.
-function parse_bin(::Type{Unsigned} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    parse_bin(s_or_c; filter=filter)
+function parse_bin(::Type{Unsigned} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false )
+    parse_bin(s_or_c; filter, rev)
 end
-function parse_bin(::Type{Integer} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    parse_bin(s_or_c; filter=filter)
+function parse_bin(::Type{Integer} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false)
+    parse_bin(s_or_c; filter, rev)
 end
 
-@inline function parse_bin(::Type{Bool},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+@inline function parse_bin(::Type{Bool},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false)
     # For very small types, filtering is actually faster.
     Bool(parse_bin(UInt8, s_or_c; filter=true))
 end
 
 # For Signed, compute min-width unsigned int, then reinterpret to Signed
-@inline function parse_bin(::Type{Signed},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    x = parse_bin(s_or_c; filter=filter)
+@inline function parse_bin(::Type{Signed},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false, rev::Bool=false)
+    x = parse_bin(s_or_c; filter, rev)
     return reinterpret(inttype(typeof(x)), x)
 end
 
 # For BigInt, we use Base.parse, if possible.
-@inline function parse_bin(::Type{BigInt}, s_or_c::Union{AbstractString, CodeUnits};  filter::Bool=false)
+@inline function parse_bin(::Type{BigInt}, s_or_c::Union{AbstractString, CodeUnits};  filter::Bool=false, rev::Bool=false)
     filter && throw(ArgumentError("filtering bit string not supported for type BigInt"))
+    if rev
+        s_or_c = reverse(s_or_c)
+    end
     parse(BigInt, s_or_c; base=2)
 end
 
 # If c is not CodeUnits, we don't know how to recover string, so can't convert first to BigInt
-@inline parse_bin(::Type{T}, c::AbstractVector{UInt8}; filter::Bool=false) where T = _parse_bin(T, c, filter)
+# So this method has no branch for converting to BigInt.
+@inline function parse_bin(::Type{T}, c::AbstractVector{UInt8}; filter::Bool=false, rev::Bool=false) where T
+    _parse_bin(T, c, filter, _rev_func(rev, c))
+end
 
 end # module ParseBin
