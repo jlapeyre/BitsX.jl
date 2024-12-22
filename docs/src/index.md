@@ -17,12 +17,6 @@ Pkg.status(["BitsX"],
 ```@contents
 ```
 
-
-```@autodocs
-Modules = [BitsX.BitsBase]
-```
-
-
 ```@autodocs
 Modules = [BitsX.Bits]
 ```
@@ -40,9 +34,8 @@ Modules = [BitsX.BStrings]
 Modules = [BitsX.BStringViews]
 ```
 
-
 ```@autodocs
-Modules = [BitsX.BArrayViews]
+Modules = [BitsX.BitArrayViews]
 ```
 
 

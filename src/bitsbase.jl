@@ -1,13 +1,65 @@
 """
     BitsBase
 
-This submodule implements some abstractions that are used by other submodules.
+This submodule implements some abstractions for working with bits that are used by other submodules.
+
+The conceit is that it should be possible to write (performant) function methods for working with bits
+that have minimal dependence on the representation of the bits. Bits can be represented by unsigned
+integers, arrays of unsigned integers, `String`s, and lazy views of each of these as a different
+bit representation. We want to write methods that don't depend on which representation we use.
+
+Analogs to [`collect`](@ref), `size`, `getindex`, `eachindex`, `axes` are
+ `bitcollect`, [`bitsize`](@ref), `bit`, `biteachindex`, and [`bitaxes`](@ref).
+
+An example of a function built on these abstractions is [`bitcollect`](@ref), which
+has this definition
+```julia
+function bitcollect(obj)
+    array = Array{Bool}(undef, bitsize(obj))
+    # Assume LinearIndices. Probably not always correct
+    for (i, ind) in enumerate(biteachindex(obj))
+        array[i] = bit(obj, ind)
+    end
+    array
+end
+```
+Note that `bitcollect` depends on `bitsize`, `bit`, and `biteachindex`. The latter
+depends on `bitaxes1`, which depends on `bitaxes`.
+
+# Examples
+
+Here are some concrete examples.
+```jldoctest
+julia> s = "10101010"; x = parse(UInt8, s; base=2); v = Bool[1,0,1,0,1,0,1,0];
+
+julia> bitlength.((x, v, s, codeunits(s)))
+(8, 8, 8, 8)
+```
+
+# Performance
+
+A goal is that there be little or no performance penalty for using this interface.
+
+For example, because the bitstrings contain only ASCII characters, `bitlength(::String)` does not
+traverse the entire string
+```julia
+julia> s = "1"^1000;
+
+julia> @btime length(\$s)
+  401.550 ns (0 allocations: 0 bytes)
+1000
+
+julia> @btime bitlength(\$s)
+  1.763 ns (0 allocations: 0 bytes)
+1000
+```
 """
 module BitsBase
 
 export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase,
+    isbinzero, isbinone,
+    from_binary_char, ZeroBased, OneBased, IndexBase,
     asint, asuint, inttype
 
 function bitsizeof end
@@ -462,7 +514,5 @@ bitlastindex(A) = last(biteachindex(A))
 # import ._BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
 #     to_binary_char, to_binary_char_code, binzero, binone,
 #     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
-
-
 
 end # module BitsBase

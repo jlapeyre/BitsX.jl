@@ -3,11 +3,19 @@ module Bits
 import ..BitsX: Word
 
 import ..BitsX.BitsBase: BitsBase, bitsizeof, bitlength, ZeroBased, OneBased, IndexBase, asint,
-    from_binary_char, is_binary_char, is_zero_char, is_one_char, count_bits
+    from_binary_char, is_binary_char, is_zero_char, is_one_char, count_bits, bitsize,
+    biteachindex
 
 import ..BitsX.BitsBase._BitsBase: _BitsBase, BoolOrVal, _toVal, _zero, _ZERO_CHAR_CODE, _ONE_CHAR_CODE
 
 import Random
+
+export randbitstring, randbitstring!, BitStringSampler,
+    rightmask, leftmask, rangemask, mask, masked, bit,
+    bit0, tstbit, tstbit0, normalize_bitstring, undigits,
+    bit_string,
+    bit_count_ones, bit_count_zeros,
+    bitcollect
 
 module _Bits
 
@@ -585,5 +593,19 @@ bit_count_zeros(s::AbstractString) = sum(is_zero_char, codeunits(s))
 Count the number of characters in `s` equal to `'0'`.
 """
 bit_count_zeros(v::AbstractArray) = count(iszero, v)
+
+"""
+    bitcollect(obj)
+
+Convert the representation of a bit array `obj` to an `Array{Bool}`.
+"""
+function bitcollect(obj)
+    array = Array{Bool}(undef, bitsize(obj))
+    # Assume LinearIndices. Probably not always correct
+    for (i, ind) in enumerate(biteachindex(obj))
+        array[i] = bit(obj, ind)
+    end
+    array
+end
 
 end # module Bits

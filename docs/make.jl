@@ -23,8 +23,9 @@ makedocs(
     warnonly = true,
 
     pages = [
-         "Introduction" => "index.md",
-         "BitArrays" => "bitarrays.md",
+        "Introduction" => "index.md",
+        "BitsBase" => "bitsbase.md",
+        "BitArrays" => "bitarrays.md",
     ]
 )
 

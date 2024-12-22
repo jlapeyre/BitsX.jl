@@ -17,13 +17,15 @@ import ..BitsX.Bits: randbitstring, randbitstring!, BitStringSampler,
     rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
-    bit_count_ones, bit_count_zeros
+    bit_count_ones, bit_count_zeros,
+    bitcollect
 
 export randbitstring, randbitstring!, BitStringSampler,
     rightmask, leftmask, rangemask, mask, masked, bit,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
-    bit_count_ones, bit_count_zeros
+    bit_count_ones, bit_count_zeros,
+    bitcollect
 
 import ..BitsX.BitArrays: bitvector, bitarray, bitarray!
 export bitvector, bitarray, bitarray!
