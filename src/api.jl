@@ -20,14 +20,14 @@ import ..BitsX.Bits: randbitstring, randbitstring!, BitStringSampler,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
     bit_count_ones, bit_count_zeros,
-    bitcollect
+    bitcollect, BitStringArray
 
 export randbitstring, randbitstring!, BitStringSampler,
     rightmask, leftmask, rangemask, mask, masked,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
     bit_count_ones, bit_count_zeros,
-    bitcollect
+    bitcollect, BitStringArray
 
 import ..BitsX.BitArrays: bitvector, bitarray, bitarray!
 export bitvector, bitarray, bitarray!

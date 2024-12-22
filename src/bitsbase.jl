@@ -9,7 +9,7 @@ integers, arrays of unsigned integers, `String`s, and lazy views of each of thes
 bit representation. We want to write methods that don't depend on which representation we use.
 
 Analogs to [`Base.collect`](@extref), `size`, `sizeof`, `getindex`, `eachindex`, `axes` are
- [`bitcollect`](@ref), [`bitsize`](@ref), [`bitsizeof`](@ref), [`bit`](@ref),
+ [`BitsX.Bits.bitcollect`](@ref), [`bitsize`](@ref), [`bitsizeof`](@ref), [`bit`](@ref),
 [`biteachindex`](@ref), and [`bitaxes`](@ref).
 
 An example of a function built on these abstractions is [`bitcollect`](@ref), which
@@ -25,7 +25,7 @@ function bitcollect(obj)
 end
 ```
 Note that `bitcollect` depends on `bitsize`, `bit`, and `biteachindex`. The latter
-depends on [`bitaxes1`](@ref), which depends on `bitaxes`.
+depends on `bitaxes1`, which depends on `bitaxes`.
 
 # Examples
 
@@ -490,6 +490,36 @@ end
 ###
 ## Don't confuse with bitsizeof
 
+# TODO: BitStringArray(Vector{String}, dims)
+
+"""
+    bitsize(B)
+
+Return a tuple containing the dimensions of `B`, where `B` is interpreted
+as an array of bits.
+
+# Examples
+
+```jldoctest
+julia> bitsize(42)
+(64,)
+
+julia> bitsize(UInt16(42))
+(16,)
+
+julia> bitsize("1011")
+(4,)
+
+julia> bitsize(Bool[1, 0])
+(2,)
+
+julia> bitsize(BitArray(undef, (3, 4)))
+(3, 4)
+
+julia> bitsize(bstringview(42))
+(64,)
+```
+"""
 bitsize(a) = size(a)
 bitsize(x::Real) = (bitlength(x),)
 bitsize(s::AbstractString) = (ncodeunits(s),)
@@ -498,6 +528,11 @@ bitsize(t::Tuple) = (length(t),)
 # FIXME: @inline at call sites is a v1.8 feature
 # So I disabled it in three places below.
 # Find out how important it is.
+"""
+    bitaxes(B)
+
+Return the valid range of indices for array B when interpreted as an array of bits.
+"""
 function bitaxes(A)
 #    @inline
     map(Base.oneto, bitsize(A))
@@ -506,9 +541,23 @@ end
 # performance optimization, as in Base.
 #bitaxes1(A::AbstractArray{<:Any,0}) = OneTo(1)
 bitaxes1(A) = bitaxes(A)[1]
+
+"""
+    biteachindex(A)
+
+Create an iterable object for visiting each index of B when interpreted as an array of bits.
+"""
 biteachindex(A) = bitaxes1(A)
 # bitaxes1(A) = (@inline; bitaxes(A)[1])
 # biteachindex(A) = (@inline(); bitaxes1(A))
+
+# TODO
+# Return the last index of collection. If d is given, return the last index of collection along dimension d.
+"""
+    bitlastindex(A)
+
+Return the last index of collection `A` when interpreted as an array of bits.
+"""
 bitlastindex(A) = last(biteachindex(A))
 
 # using BitsX.BitsBase._BitsBase
@@ -519,7 +568,6 @@ bitlastindex(A) = last(biteachindex(A))
 ###
 ### bit
 ###
-
 
 """
     bit(x::Real, i::Integer)

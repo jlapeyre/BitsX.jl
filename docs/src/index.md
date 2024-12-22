@@ -21,7 +21,6 @@ Pkg.status(["BitsX"],
 Modules = [BitsX.Bits]
 ```
 
-
 ```@autodocs
 Modules = [BitsX.ParseBin]
 ```
@@ -38,21 +37,13 @@ Modules = [BitsX.BStringViews]
 Modules = [BitsX.BitArrayViews]
 ```
 
-
 ```@autodocs
 Modules = [BitsX.StaticBitVectors]
 ```
 
-
-```@autodocs
-Modules = [BitsX.BitArrays]
-```
-
-
 ```@autodocs
 Modules = [BitsX.BitArraysX]
 ```
-
 
 ```@autodocs
 Modules = [BitsX.BitIntegersX]

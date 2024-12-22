@@ -15,7 +15,7 @@ export randbitstring, randbitstring!, BitStringSampler,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
     bit_count_ones, bit_count_zeros,
-    bitcollect
+    bitcollect, BitStringArray
 
 module _Bits
 
@@ -607,5 +607,50 @@ function bitcollect(obj)
     end
     array
 end
+
+# TODO: Check row vs column major
+"""
+   BitStringArray{T <: AbstractVector{<:AbstractString}, N} <: AbstractArray{Bool, N}
+
+An array of `Bool`s represented by a vector of bitstrings.
+"""
+struct BitStringArray{T <: AbstractVector{<:AbstractString}, N} <: AbstractArray{Bool, N}
+    data::T
+    dims::NTuple{N, Int}
+    len::Int
+
+    function BitStringArray(strs::ST, dims::NTuple{N, Int}) where {ST <: AbstractVector{<: AbstractString}, N}
+        if !isempty(strs)
+            n = bitlength(first(strs))
+            all(x -> bitlength(x) == n, strs) || throw(DimensionMismatch("Strings in BitStringArray must have the same length"))
+        end
+        len = prod(dims)
+        return new{ST, length(dims)}(strs, dims, len)
+    end
+end
+
+function BitStringArray(strs::T) where {T <: AbstractVector{<:AbstractString}}
+    if isempty(strs)
+        return BitStringArray(strs, (0,))
+    end
+    BitStringArray(strs, (bitlength(first(strs)), size(strs)...,))
+end
+
+Base.size(B::BitStringArray) = B.dims
+Base.size(B::BitStringArray, n::Integer) = size(B, n)
+
+# We may not want to store this. rather, compute it every time.
+Base.length(B::BitStringArray) = B.len
+
+function Base.getindex(B::BitStringArray, i::Integer)
+    bit(first(B.data), i)
+end
+
+function Base.getindex(B::BitStringArray, inds::Integer...)
+    i1 = first(inds)
+    inds = inds[2:end]
+    bit(B.data[inds...], i1)
+end
+
 
 end # module Bits
