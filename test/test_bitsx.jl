@@ -398,6 +398,8 @@ end
         x = T(11)
         @test _identity(x) === x
     end
+    @test parse_bin(Bool, "1")
+    @test !parse_bin(Bool, "0")
 end
 
 @testset "BitsX.jl" begin

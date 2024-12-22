@@ -24,6 +24,15 @@ _length_in_UInt8(v::AbstractVector{UInt8}) = length(v)
 
 _parse_bin(::Type{T}, s::AbstractString, filter) where T = _parse_bin(T, codeunits(s), filter)
 
+# The permissive option differs in two ways:
+# 1. it permits chars other than '1' and '0'
+# 2. it computes the single bit masks on the fly, rather than using precomputed masks.
+# There can be significant time-performance difference between using precomputed or on-the-fly masks,
+# say 50% to 80%. Sometimes a dramatic difference 6x. When to choose one or the other
+# is slightly complicated and counterintuitive.
+# But it's probably worth doing, since the differences can be large.
+# We would want to implement a routine that is both strict and computes masks on the fly.
+# This is very easy. But there's no reason to do it until we can discriminate which to use.
 function _parse_bin(::Type{T}, c::AbstractVector{UInt8}, filter::Bool) where T
     return filter ? __parse_bin_permissive(T, c)::T :
         __parse_bin(T, c, get_one_bit_masks(T))::T
@@ -111,14 +120,32 @@ ERROR: BoundsError: attempt to access 8-element Vector{UInt8} at index [9]
 
 julia> parse_bin(UInt8, "10 00 11 11"; filter=true) |> bitstring
 "10001111"
+
+julia> parse_bin(Bool, "1")
+true
 ```
 
 Various input types are supported.
-```jldoctest
+```jldoctest sstr
 julia> s = "0001111100000100";
 
 julia> parse_bin.(UInt16, (s, codeunits(s), collect(codeunits(s))))
 (0x1f04, 0x1f04, 0x1f04)
+```
+
+The type parameter need not be a bitstype.
+```jldoctest sstr
+julia> x = parse_bin(Signed, s); (x, typeof(x))
+(7940, Int16)
+
+julia> x = parse_bin(Unsigned, s); (x, typeof(x))
+(0x1f04, UInt16)
+
+julia> x = parse_bin(Integer, s); (x, typeof(x))
+(0x1f04, UInt16)
+
+julia> x = parse_bin(BigInt, s); (x, typeof(x))
+(7940, BigInt)
 ```
 
 # Extended help
@@ -137,27 +164,14 @@ to the appropriate fixed-wdith unsigned integer type.
 
 `parse_bin` is often much faster if `T` is supplied.
 """
-parse_bin(s; filter::Bool=false) = parse_bin(_min_uint_type(s), s; filter=filter)
+@inline parse_bin(s; filter::Bool=false) = parse_bin(_min_uint_type(s), s; filter=filter)
 
-function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: Union{AbstractFloat, Signed}}
+# For concrete subtypes of T, bitwidth is known, and we first use bit-equiv unsigned
+@inline function parse_bin(::Type{T},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where {T <: Union{AbstractFloat, Signed}}
     return reinterpret(T, parse_bin(Base.uinttype(T), s_or_c; filter=filter))
 end
 
-# TODO: Refactor these.
-function parse_bin(::Type{Unsigned},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    parse_bin(s_or_c; filter=filter)
-end
-
-function parse_bin(::Type{Integer},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    parse_bin(s_or_c; filter=filter)
-end
-
-function parse_bin(::Type{Signed},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
-    x = parse_bin(s_or_c; filter=filter)
-    return reinterpret(inttype(typeof(x)), x)
-end
-
-function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where T # ; filter::Bool=false) where T
+function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false) where T
     BigInt_better_thresh = 650 # approx.
     if _length_in_UInt8(s_or_c) > BigInt_better_thresh
         return T(parse(BigInt, s_or_c; base=2)) # TODO: do filtering if requested
@@ -165,7 +179,33 @@ function parse_bin(::Type{T}, s_or_c::Union{AbstractString, CodeUnits}; filter::
     _parse_bin(T, s_or_c, filter)::T
 end
 
-# If c is not CodeUnits, we don't know how to recover string, so can't use BigInt
-parse_bin(::Type{T}, c::AbstractVector{UInt8}; filter::Bool=false) where T = _parse_bin(T, c, filter)
+# Types Unsigned and Integer,  return the min-width unsigned int
+# I tried signatues to make a single method, but was unable to get all cases correct.
+function parse_bin(::Type{Unsigned} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    parse_bin(s_or_c; filter=filter)
+end
+function parse_bin(::Type{Integer} ,  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    parse_bin(s_or_c; filter=filter)
+end
+
+@inline function parse_bin(::Type{Bool},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    # For very small types, filtering is actually faster.
+    Bool(parse_bin(UInt8, s_or_c; filter=true))
+end
+
+# For Signed, compute min-width unsigned int, then reinterpret to Signed
+@inline function parse_bin(::Type{Signed},  s_or_c::Union{AbstractString, CodeUnits}; filter::Bool=false)
+    x = parse_bin(s_or_c; filter=filter)
+    return reinterpret(inttype(typeof(x)), x)
+end
+
+# For BigInt, we use Base.parse, if possible.
+@inline function parse_bin(::Type{BigInt}, s_or_c::Union{AbstractString, CodeUnits};  filter::Bool=false)
+    filter && throw(ArgumentError("filtering bit string not supported for type BigInt"))
+    parse(BigInt, s_or_c; base=2)
+end
+
+# If c is not CodeUnits, we don't know how to recover string, so can't convert first to BigInt
+@inline parse_bin(::Type{T}, c::AbstractVector{UInt8}; filter::Bool=false) where T = _parse_bin(T, c, filter)
 
 end # module ParseBin
