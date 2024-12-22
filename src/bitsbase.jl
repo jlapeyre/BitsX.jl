@@ -8,8 +8,9 @@ that have minimal dependence on the representation of the bits. Bits can be repr
 integers, arrays of unsigned integers, `String`s, and lazy views of each of these as a different
 bit representation. We want to write methods that don't depend on which representation we use.
 
-Analogs to [`collect`](@ref), `size`, `getindex`, `eachindex`, `axes` are
- `bitcollect`, [`bitsize`](@ref), `bit`, `biteachindex`, and [`bitaxes`](@ref).
+Analogs to [`Base.collect`](@extref), `size`, `sizeof`, `getindex`, `eachindex`, `axes` are
+ [`bitcollect`](@ref), [`bitsize`](@ref), [`bitsizeof`](@ref), [`bit`](@ref),
+[`biteachindex`](@ref), and [`bitaxes`](@ref).
 
 An example of a function built on these abstractions is [`bitcollect`](@ref), which
 has this definition
@@ -24,7 +25,7 @@ function bitcollect(obj)
 end
 ```
 Note that `bitcollect` depends on `bitsize`, `bit`, and `biteachindex`. The latter
-depends on `bitaxes1`, which depends on `bitaxes`.
+depends on [`bitaxes1`](@ref), which depends on `bitaxes`.
 
 # Examples
 
@@ -58,7 +59,7 @@ module BitsBase
 
 export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone,
+    isbinzero, isbinone, bit,
     from_binary_char, ZeroBased, OneBased, IndexBase,
     asint, asuint, inttype
 
@@ -85,7 +86,7 @@ _bitsizeof(isbits::Val{false}, T::Type) = throw(MethodError(bitsizeof, (T,)))
 
 end # module _BitsBase
 
-import ._BitsBase
+import ._BitsBase: _BitsBase, _toVal, BoolOrVal, _ONE_CHAR_CODE, _ZERO_CHAR_CODE
 
 abstract type IndexBase end
 struct OneBased <: IndexBase end
@@ -112,7 +113,7 @@ julia> is_one_char.((Int('1'), 42))
 (true, false)
 ```
 """
-is_one_char(x::Integer) = x == _BitsBase._ONE_CHAR_CODE
+is_one_char(x::Integer) = x == _ONE_CHAR_CODE
 
 """
     is_zero_char(x)
@@ -125,7 +126,7 @@ julia> is_zero_char.(('0', '1', 'c', UInt8('0'), UInt8('1'), UInt8('c')))
 (true, false, false, true, false, false)
 ```
 """
-is_zero_char(x::Integer) = x == _BitsBase._ZERO_CHAR_CODE
+is_zero_char(x::Integer) = x == _ZERO_CHAR_CODE
 is_one_char(x::Char) = is_one_char(UInt8(x))
 is_zero_char(x::Char) = is_zero_char(UInt8(x))
 
@@ -514,5 +515,133 @@ bitlastindex(A) = last(biteachindex(A))
 # import ._BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
 #     to_binary_char, to_binary_char_code, binzero, binone,
 #     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
+
+###
+### bit
+###
+
+
+"""
+    bit(x::Real, i::Integer)
+
+Similar to `Bits.bit` from registered `Bits.jl` package. A difference is that
+the return type here does not depend on the input type, but rather is always `Int`.
+(Check a. is this true and b. what do we prefer?)
+"""
+@inline bit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Int
+bit(x::AbstractFloat, i::Integer) = bit(asint(x), i)
+bit(x::Union{BigInt, BigFloat}, i::Integer) = Int(tstbit(x, i))
+
+function bit(x::AbstractArray{Bool}, i::Integer)
+    @boundscheck checkbounds(x, i)
+    return @inbounds x[i] # % Int
+end
+@inline bit(::ZeroBased, x, i::Integer) = bit(x, i + 1)
+@inline bit(::OneBased, args...) = bit(args...)
+
+function bit(x, inds::AbstractVector)
+    [bit(x, i) for i in inds]
+end
+
+"""
+    bit0(x, i)
+
+Like `bit(x, i)` except the first bit has index `0` rather than `1`.
+"""
+@inline bit0(x, i) = bit(ZeroBased(), x, i)
+
+"""
+    tstbit0(x, i)
+
+Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
+"""
+@inline tstbit0(x, i) = tstbit(ZeroBased(), x, i)
+
+
+## NB: In the following few functions there are two kinds of checking.
+## 1) is the index in bounds
+## 2) is the value at that index valid.
+
+# TODO: Using Val here may offer no advantage
+# Assume the string is one code unit per code point: '1' or '0'
+"""
+    bit(str::AbstractString, i::Integer)::Int
+
+Return `1` if the `i`th character of `str` is `'1'` and
+`0` if it is `'0'`. Otherwise throw an `ArgumentError`.
+
+It is assumed that `str` has one byte per character, or more precisely,
+one `UInt8` code unit per code point. Thus, accessing the `i`th character
+via `bit` may be more efficient than `str[i]`.
+"""
+function bit(str::AbstractString, i::Integer; check::BoolOrVal=Val(true))
+    @boundscheck checkbounds(str, i)
+    byte = @inbounds codeunit(str, i)
+    return from_binary_char(Int, byte, _toVal(check))
+end
+
+# Not using Val here seems not to affect performance
+function bit(v, i::Integer; check=true)
+    @boundscheck checkbounds(v, i)
+    b = @inbounds v[i]
+    isone(b) && return 1
+    check && !iszero(b) && throw(DomainError(b, lazy"Unrecognized bit $b"))
+    return 0
+end
+
+# TODO: Do bounds checking somehow for Tuple. No method for checkbounds.
+function bit(@nospecialize(v::Tuple), i::Integer; check=true)
+    b = v[i]
+    isone(b) && return 1
+    check && !iszero(b) && throw(DomainError(b, lazy"Unrecognized bit $b"))
+    return 0
+end
+
+"""
+    tstbit(x::Real, i::Integer) -> Bool
+
+Similar to [`bit`](@ref) but returns the bit at position `i` as a `Bool`.
+
+# Examples
+```jldoctest
+julia> tstbit(0b101, 3)
+true
+```
+"""
+#@inline tstbit(x, i::Integer) = bit(x, i) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) === one(typeof(x)) ? true : false
+@inline tstbit(x::Integer, i::Integer) = ((>>>(x, UInt(i-1))) & 1) != 0
+@inline tstbit(x, i::Integer) = bit(x, i) % Bool
+tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
+
+@inline tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
+@inline tstbit(::OneBased, args...) = tstbit(args...)
+
+# Maybe from Random module via Bits.jl
+function tstbit(x::BigFloat, i::Integer)
+    prec = precision(x)
+    if i > prec
+        i -= prec
+        if i > MPFR_EXP_BITSIZE
+            (i == MPFR_EXP_BITSIZE + 1) ? (x.sign == -1) : false
+        else
+            tstbit(x.exp, i)
+        end
+    else
+        nlimbs = (prec-1) ÷ Base.GMP.BITS_PER_LIMB + 1
+        unsafe_tstbit(x.d, i + nlimbs * Base.GMP.BITS_PER_LIMB - prec)
+    end
+end
+
+"""
+    unsafe_tstbit(p::Ptr{T}, i::Integer)::Bool where {T}
+
+Return the value of `i`th bit of `p`. This is dangerous,
+there is no bounds check.
+"""
+unsafe_tstbit(p::Ptr{T}, i::Integer) where {T} =
+    tstbit(unsafe_load(p, 1 + (i-1) ÷ bitsizeof(T)),
+           mod1(i, bitsizeof(T)))
 
 end # module BitsBase

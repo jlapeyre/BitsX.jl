@@ -3,12 +3,12 @@ module StaticBitVectors
 
 module _StaticBitVectors
 
-import ...BitsX.Bits: bit, normalize_bitstring, undigits, tstbit, rightmask
+import ...BitsX.Bits: normalize_bitstring, undigits, rightmask
 
 import ...BitsX.BitsBase._BitsBase: _BitsBase, _toVal, BoolOrVal
 
 import ...BitsX.BitsBase: ZeroBased, OneBased, IndexBase,
-    ZeroBased, OneBased, bitsizeof, bitsize
+    ZeroBased, OneBased, bitsizeof, bitsize, tstbit, bit
 
 import ...BitsX.BitIntegersX
 import ...BitsX.ParseBin: parse_bin

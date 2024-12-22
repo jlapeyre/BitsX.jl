@@ -6,22 +6,24 @@ export BitsBase
 import ..BitsX.BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits
+    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
+    bit
 
 export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits
+    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
+    bit
 
 import ..BitsX.Bits: randbitstring, randbitstring!, BitStringSampler,
-    rightmask, leftmask, rangemask, mask, masked, bit,
+    rightmask, leftmask, rangemask, mask, masked,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
     bit_count_ones, bit_count_zeros,
     bitcollect
 
 export randbitstring, randbitstring!, BitStringSampler,
-    rightmask, leftmask, rangemask, mask, masked, bit,
+    rightmask, leftmask, rangemask, mask, masked,
     bit0, tstbit, tstbit0, normalize_bitstring, undigits,
     bit_string,
     bit_count_ones, bit_count_zeros,

@@ -111,7 +111,7 @@ function Base.show(io::IO, bs::BStringView)
     print(io, '"')
 end
 
-function Bits.bit(bs::BStringView, i::Integer)
+function BitsBase.bit(bs::BStringView, i::Integer)
     bs[i]
 #    BitsBase.bit(parent(bs), i)
 end
@@ -125,12 +125,12 @@ Base.ncodeunits(sv::BStringView) = sv.len # BitsBase.bitlength(parent(sv))
 
 function _getindex(sv, i::Integer)
     # bdiff = BitsBase.bitlength(sv.data) - length(sv)
-    # Bits.bit(parent(sv), i + bdiff)
-    Bits.bit(parent(sv), i)
+    # BitsBase.bit(parent(sv), i + bdiff)
+    BitsBase.bit(parent(sv), i)
 end
 
 function _getindex(sv, inds)
-    Bits.bit(parent(sv), inds)
+    BitsBase.bit(parent(sv), inds)
 end
 
 # Called by sizeof, for example
