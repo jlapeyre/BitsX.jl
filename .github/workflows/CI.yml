@@ -19,7 +19,7 @@ jobs:
       matrix:
         version:
           - '1.11'
-          - 'nightly'
+#          - 'nightly'  # Even if we don't use JET, it is an extra Project.toml and must be loaded. This fails :(
         os:
           - ubuntu-latest
           - macOS-latest
