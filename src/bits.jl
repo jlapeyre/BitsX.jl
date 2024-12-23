@@ -10,9 +10,9 @@ import ..BitsX.BitsBase._BitsBase: _BitsBase, BoolOrVal, _toVal, _zero, _ZERO_CH
 
 import Random
 
-export randbitstring, randbitstring!, BitStringSampler,
-    rightmask, leftmask, rangemask, mask, masked, normalize_bitstring, undigits, bit_string,
-    bit_count_ones, bit_count_zeros, bitcollect, BitStringArray
+export randbitstring, randbitstring!, BitStringSampler, normalize_bitstring,
+    rightmask, leftmask, rangemask, mask, masked,
+    bit_count_ones, bit_count_zeros, bitcollect, BitStringArray, undigits
 
 module _Bits
 
@@ -23,10 +23,11 @@ import Random
 # This is only an optimization. Tests are highly variable for unknown reasons.
 # So, I am not sure how much is saved here.
 # This will fail for BigInt
-function _undigits_base_2(::Type{IntT}, A) where IntT <: Unsigned
+function _undigits_base_2(::Type{IntT}, A, rev::Bool) where IntT <: Unsigned
     bitsizeof(IntT) < length(A) && throw(OverflowError("Output data type is too small for input data"))
     n = zero(IntT)
-    @inbounds for i = reverse(eachindex(A))
+    inds = rev ? eachindex(A) : reverse(eachindex(A))
+    @inbounds for i = inds
         n = IntT(2) * n + IntT(A[i])
     end
     return n
@@ -246,7 +247,7 @@ end
 
 
 """
-    undigits([IntT=Int], A; base=10)
+    undigits([IntT=Int], A; base=10, rev=false)::IntT
 
 The inverse of `digits`. That is `undigits(digits(n; base); base) == n`.
 The number returned is of type `IntT` provided that the type is stable
@@ -256,53 +257,69 @@ under `+` and `*`, and that each element of `A` can be converted to `IntT`.
 * `OverflowError` if `A` represents a number larger than `typemax(IntT)`. For
    `Unsigned` types the check is more strict in that `length(A)` must not be
     greater than the number of bits in `IntT`, even if there are leading zeros.
+
+
+# Examples
+```jldoctest
+julia> undigits([2, 4])
+42
+
+julia> undigits([2, 4]; rev=true)
+24
+```
+
+julia> undigits(UInt8, [1, 0, 1, 1]; base=2)
+0x0d
+
+julia> bstring(undigits(UInt8, [1, 0, 1, 1]; base=2); pad=true)
+"1011"
 """
-undigits(A; base=10) = undigits(Int, A, base=base)
-function undigits(::Type{IntT}, A; base=10) where IntT
-    base == 2 && IntT <: Unsigned && return _Bits._undigits_base_2(IntT, A)
+undigits(A; base=10, rev=false) = undigits(Int, A; base, rev)
+
+function undigits(::Type{IntT}, A; base=10, rev=false) where IntT
+    base == 2 && IntT <: Unsigned && return _Bits._undigits_base_2(IntT, A, rev)
     n = zero(IntT)
-    @inbounds for i in reverse(eachindex(A))
+    inds = rev ? eachindex(A) : reverse(eachindex(A))
+    @inbounds for i in inds
         n = Base.checked_add(Base.checked_mul(base, n), IntT(A[i]))
     end
     return n
 end
 
-"""
-    bit_string(n::Integer; pad=nothing)
+# """
+#     bit_string(n::Integer; pad=nothing)
 
-Give the literal bitstring representation of the number `n`. If `n` is a primitive type,
-`bit_string` is the same as `Base.bitstring`, except that the former allows specifying
-left padding.
+# Give the literal bitstring representation of the number `n`. If `n` is a primitive type,
+# `bit_string` is the same as `Base.bitstring`, except that the former allows specifying
+# left padding.
 
-`pad=0` omits leading zeros in the output string
+# `pad=0` omits leading zeros in the output string
 
-# Examples:
-```jldoctest
-julia> bit_string(128)
-"0000000000000000000000000000000000000000000000000000000010000000"
+# # Examples:
+# ```jldoctest
+# julia> bit_string(128)
+# "0000000000000000000000000000000000000000000000000000000010000000"
 
-julia> bit_string(128; pad = 0)
-"10000000"
+# julia> bit_string(128; pad = 0)
+# "10000000"
 
-julia> bit_string(128; pad = 9)
-"010000000"
+# julia> bit_string(128; pad = 9)
+# "010000000"
 
-julia> bit_string(1.0)
-"0011111111110000000000000000000000000000000000000000000000000000"
-```
-"""
-function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
-# Not yet implemented
-# function bit_string(x::T; pad::Union{Nothing,Integer}=nothing, nsep::Union{Nothing,Integer}=nothing) where T <: Integer
-#     !isnothing(nsep) && return _bit_string(x, pad, nsep)
-    isnothing(pad) && return bitstring(x)
-    return string(reinterpret(Base.uinttype(T), x); pad=pad, base=2)
-end
-
-bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
-
-# function _bit_string(x, pad, nsep)
+# julia> bit_string(1.0)
+# "0011111111110000000000000000000000000000000000000000000000000000"
+# ```
+# """
+# function bit_string(x::T; pad::Union{Nothing,Integer}=nothing) where T <: Integer
+# # Not yet implemented
+# # function bit_string(x::T; pad::Union{Nothing,Integer}=nothing, nsep::Union{Nothing,Integer}=nothing) where T <: Integer
+# #     !isnothing(nsep) && return _bit_string(x, pad, nsep)
+#     isnothing(pad) && return bitstring(x)
+#     return string(reinterpret(Base.uinttype(T), x); pad=pad, base=2)
 # end
+
+# bit_string(x::AbstractFloat, args...;pad=nothing) = bit_string(asint(x), args...;pad=pad)
+
 
 ###
 ### bitgetindex

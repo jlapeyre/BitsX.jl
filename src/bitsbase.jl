@@ -57,11 +57,16 @@ julia> @btime bitlength(\$s)
 """
 module BitsBase
 
-export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
-    to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
+export binzero, binone, isbinzero, isbinone, isbin,
+    is_one_char, is_zero_char, is_binary_char
+
+export  IndexBase, ZeroBased, OneBased
+
+export to_binary_char, to_binary_char_code, from_binary_char,
+    bitconvert,
+    min_bits, min_dits,
     bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
-    bit, bit0, tstbit, tstbit0
+    bit, bit0, tstbit, tstbit0, is_bitstring, check_bitstring
 
 function bitsizeof end
 
@@ -89,7 +94,19 @@ end # module _BitsBase
 import ._BitsBase: _BitsBase, _toVal, BoolOrVal, _ONE_CHAR_CODE, _ZERO_CHAR_CODE
 
 abstract type IndexBase end
+
+"""
+   struct OneBased
+
+A type used for dispatch that signifies that the first index is one.
+"""
 struct OneBased <: IndexBase end
+
+"""
+   struct OneBased
+
+A type used for dispatch that signifies that the first index is zero.
+"""
 struct ZeroBased <: IndexBase  end
 
 # Modified from Bits.jl
@@ -294,6 +311,73 @@ end
 
 from_binary_char(x) = from_binary_char(Bool, x)
 
+"""
+    isbin(b)::Bool
+
+Return `true` is `b` represents a binary digit.
+
+This is of course subjective in general. But this package has rules for what values
+of various types can be interpreted as `Bool`s.
+
+# Examples
+```jldocstring
+julia> isbin.((true, false, 1, 0, '1', '0', 42, 'c'))
+(true, true, true, true, true, true, false, false)
+
+julia> isbin("1")
+ERROR: MethodError: no method matching binzero(::String)
+```
+"""
+function isbin(::Bool)
+    true
+end
+
+function isbin(b)
+    isbinzero(b) || isbinone(b)
+end
+
+
+# `Base.convert` is supposed to enable sort of implicit or opaque conversion.
+# But `bitconvert` must be called explicitly
+"""
+    bitconvert([T=Bool], b)::T
+
+Convert the representation of a bit `b` to the representation of a bit of type `T`.
+
+# Examples
+```jldoctest
+julia> bitconvert.((true, 1, UInt64(1), '1'))
+(true, true, true, true)
+
+julia> bitconvert(3)
+ERROR: ArgumentError: Value 3 cannot be interpreted as a bit value of type Bool
+
+julia> bitconvert.(UInt8, ('0', 0, UInt64(0)))
+(0x00, 0x00, 0x00)
+```
+"""
+function bitconvert end
+
+function bitconvert(b)
+    bitconvert(Bool, b)
+end
+
+function bitconvert(::Type{T}, b::Number) where T
+    isbin(b) || throw(ArgumentError(lazy"Value $b cannot be interpreted as a bit value of type $T"))
+    T(b)
+end
+
+function bitconvert(::Type{T}, b::Char) where T
+    from_binary_char(T, b)
+end
+
+function bitconvert(::Type{Char}, b::Number)
+    to_binary_char(b)
+end
+
+function bitconvert(::Type{Char}, b::AbstractChar)
+    Char(b)
+end
 
 """
     is_bitstring(bit_str::Union{AbstractString, AbstractVector{UInt8}})
@@ -560,11 +644,6 @@ Return the last index of collection `A` when interpreted as an array of bits.
 """
 bitlastindex(A) = last(biteachindex(A))
 
-# using BitsX.BitsBase._BitsBase
-# import ._BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
-#     to_binary_char, to_binary_char_code, binzero, binone,
-#     isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase
-
 ###
 ### bit
 ###
@@ -655,15 +734,14 @@ julia> tstbit(0b101, 3)
 true
 ```
 """
-#@inline tstbit(x, i::Integer) = bit(x, i) % Bool
-#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Bool
-#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) === one(typeof(x)) ? true : false
 @inline tstbit(x::Integer, i::Integer) = ((>>>(x, UInt(i-1))) & 1) != 0
 @inline tstbit(x, i::Integer) = bit(x, i) % Bool
 tstbit(x::BigInt, i::Integer) = Base.GMP.MPZ.tstbit(x, i-1)
-
 @inline tstbit(::ZeroBased, x, i::Integer) = tstbit(x, i + 1)
 @inline tstbit(::OneBased, args...) = tstbit(args...)
+#@inline tstbit(x, i::Integer) = bit(x, i) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) % Bool
+#@inline tstbit(x::Integer, i::Integer) = ((Base.:(>>>)(x, UInt(i-1))) & 1) === one(typeof(x)) ? true : false
 
 # Maybe from Random module via Bits.jl
 function tstbit(x::BigFloat, i::Integer)

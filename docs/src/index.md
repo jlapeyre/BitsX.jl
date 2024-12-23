@@ -6,14 +6,18 @@ DocTestSetup = quote
 end
 ```
 
+## BitsX
+```@docs
+BitsX
+```
+
+## Contents
 ```@contents
+Pages = ["index.md", "bitsbase.md", "bitstrings.md", "bits.md", "misc.md"]
+Depth = 5
 ```
 
-```@autodocs
-Modules = [BitsX]
-```
-
-# Index
+## Index
 
 ```@index
 ```

@@ -108,10 +108,6 @@ end
     @test b1 == b2
 end
 
-@testset "bit_string" begin
-    @test length(bit_string(128; pad=0)) == 8
-end
-
 @testset "rightmask, leftmask, rangemask" begin
     for i in 0:63
         @test rightmask(i) === UInt(2)^i - 1

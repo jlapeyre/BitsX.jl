@@ -25,6 +25,8 @@ makedocs(
     pages = [
         "Introduction" => "index.md",
         "BitsBase" => "bitsbase.md",
+        "Working with bit strings" => "bitstrings.md",
+        "Masks and miscellany" => "bits.md",
         "BitArrays" => "bitarrays.md",
         "Everything else" => "misc.md",
     ]
@@ -33,6 +35,6 @@ makedocs(
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
-#=deploydocs(
-    repo = "<repository url>"
-)=#
+deploydocs(
+    repo = "https://github.com/jlapeyre/BitsX.jl.git"
+)

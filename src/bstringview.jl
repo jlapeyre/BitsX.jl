@@ -42,14 +42,27 @@ Return an `AbstractString` view of `v` that represent a sequence of bits.
 julia> bstringview([1,0,1,1])
 "1011"
 
-julia> bstringview([true, false, true, false])
-"1010"
-
 julia> bstringview(UInt8(1 << 4 - 1))
 "11110000"
 
 julia> bstringview("110") # `bit` is implemented for binary strings.
 "110"
+
+julia> bsv = bstringview([true, false, true, false])
+"1010"
+
+julia> bsv[end]
+'0': ASCII/Unicode U+0030 (category Nd: Number, decimal digit)
+
+julia> bsv[end] = '1'
+'1': ASCII/Unicode U+0031 (category Nd: Number, decimal digit)
+
+julia> bsv
+"1011"
+
+julia> bsv[end] = false
+false
+
 ```
 
 If `n` is omitted, then the length of the string is the number of bits in `v`. For
@@ -78,6 +91,13 @@ julia> bstringview(UInt16(7))
 ```
 
 `String(bstringview(v))` converts `v` to a `String.
+```jldoctest
+julia> v = bstringview(UInt64(7), 0); vs = String(v); (v, vs)
+("111", "111")
+
+julia> typeof.((v, vs))
+(BStringView{UInt64}, String)
+```
 """
 function bstringview(v, pad::Integer=BitsBase.bitlength(v))
     if iszero(pad)
@@ -129,6 +149,12 @@ end
 
 function _getindex(sv, inds)
     BitsBase.bit(parent(sv), inds)
+end
+
+function Base.setindex!(sv::BStringView, val, i::Integer)
+    # TODO: Need a function to get the bit type of `parent(sv)`.
+    # Here we are guessing that the type is Bool.
+    setindex!(parent(sv), BitsBase.bitconvert(val), i)
 end
 
 # Called by sizeof, for example
