@@ -1,6 +1,8 @@
 #  This name is misleading
 module StaticBitVectors
 
+export bits, StaticBitVector, StaticBitVectorView
+
 module _StaticBitVectors
 
 import ...BitsX.Bits: normalize_bitstring, undigits, rightmask
@@ -485,6 +487,5 @@ Base.convert(::Type{StaticBitVectorView{T}}, x::StaticBitVectorView{T}) where T 
 end  # module _StaticBitVectors
 
 import ._StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
-export bits, StaticBitVector, StaticBitVectorView
 
 end # module StaticBitVectors

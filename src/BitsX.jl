@@ -1,7 +1,13 @@
 """
     module BitsX
 
-Tools for bits and masks.
+`BitsX` is a collection of types and functions for working with bits.
+
+The API is large and much of it is rather exploratory. In particular interfaces for type that
+require a lot of implemenation are incomplete. On the other hand, some pieces are solid and
+seem useful.
+
+A main interface idea in this repo is in [`BitsBase`](@ref).
 """
 module BitsX
 

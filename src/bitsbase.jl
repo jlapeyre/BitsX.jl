@@ -59,9 +59,9 @@ module BitsBase
 
 export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
     to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, bit,
-    from_binary_char, ZeroBased, OneBased, IndexBase,
-    asint, asuint, inttype
+    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
+    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
+    bit, bit0, tstbit, tstbit0
 
 function bitsizeof end
 
@@ -604,7 +604,6 @@ Like `bit(x, i)` except the first bit has index `0` rather than `1`.
 Like `tstbit(x, i)` except the first bit has index `0` rather than `1`.
 """
 @inline tstbit0(x, i) = tstbit(ZeroBased(), x, i)
-
 
 ## NB: In the following few functions there are two kinds of checking.
 ## 1) is the index in bounds

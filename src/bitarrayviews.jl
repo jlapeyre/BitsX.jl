@@ -8,11 +8,15 @@ module BitArrayViews
 using BitsX.BitsBase: bitlength, is_one_char, check_bitstring
 using BitsX.Bits: bitgetindex
 
+export BitArrayView, BitVectorView, BitMatrixView,
+    is_little_endian, bitvecview, bitmatview, bitarrview
+
 module _BitArrayViews
 const _DEFAULT_CHECK = true
 end # module _BitArrayViews
 
 import ._BitArrayViews: _DEFAULT_CHECK
+
 
 """
     BitArrayView{V, N, T} <: AbstractArray{V, N}

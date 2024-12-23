@@ -1,7 +1,5 @@
 module BStringViews
 
-
-
 # Maybe @bsv should be removed, or have a different name
 export BStringView, @bsv, bstringview
 

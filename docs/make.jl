@@ -26,6 +26,7 @@ makedocs(
         "Introduction" => "index.md",
         "BitsBase" => "bitsbase.md",
         "BitArrays" => "bitarrays.md",
+        "Everything else" => "misc.md",
     ]
 )
 

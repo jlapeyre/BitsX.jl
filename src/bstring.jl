@@ -1,5 +1,7 @@
 module BStrings
 
+export bstring
+
 module _BStrings
 # TODO: putthis back
 #using ..BitsX.BitsBase: bitsizeof

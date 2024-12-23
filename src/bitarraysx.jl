@@ -1,7 +1,9 @@
 module BitArraysX
 
 export AbstractBitArray, AbstractBitMatrix, AbstractBitVector,
-    BitArrayX, BitVectorX, BitArrayAlt, BitVectorAlt, Chunks
+    BitArrayX, BitVectorX, BitMatrixX,
+    BitArrayAlt, BitVectorAlt, BitMatrixAlt,
+    Chunks
 
 module _BitArraysX
 

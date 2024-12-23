@@ -1,58 +1,16 @@
 module API
 
-import ..BitsX.BitsBase
-export BitsBase
+import Reexport
 
-import ..BitsX.BitsBase: is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
-    to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
-    bit
-
-export is_one_char, is_zero_char, is_binary_char, is_bitstring, check_bitstring,
-    to_binary_char, to_binary_char_code, binzero, binone,
-    isbinzero, isbinone, from_binary_char, ZeroBased, OneBased, IndexBase, min_bits, min_dits,
-    bitaxes, bitaxes1, biteachindex, bitlastindex, bitsizeof, bitsize, bitlength, count_bits,
-    bit
-
-import ..BitsX.Bits: randbitstring, randbitstring!, BitStringSampler,
-    rightmask, leftmask, rangemask, mask, masked,
-    bit0, tstbit, tstbit0, normalize_bitstring, undigits,
-    bit_string,
-    bit_count_ones, bit_count_zeros,
-    bitcollect, BitStringArray
-
-export randbitstring, randbitstring!, BitStringSampler,
-    rightmask, leftmask, rangemask, mask, masked,
-    bit0, tstbit, tstbit0, normalize_bitstring, undigits,
-    bit_string,
-    bit_count_ones, bit_count_zeros,
-    bitcollect, BitStringArray
-
-import ..BitsX.BitArrays: bitvector, bitarray, bitarray!
-export bitvector, bitarray, bitarray!
-
-import ..BitsX.BitArrayViews: bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview
-export  bitvecview, BitArrayView, BitVectorView, BitMatrixView, bitmatview
-
-# I need bit_reverse, or breverse. I currently type-pirate bitreverse.
-
-import ..BitsX.BStrings: bstring
-export bstring
-
-import ..BitsX.BStringViews: bstringview, BStringView
-export bstringview, BStringView
-
-import ..BitsX.ParseBin: parse_bin
-export parse_bin
-
-import ..BitsX.StaticBitVectors: bits, StaticBitVector, StaticBitVectorView
-export bits, StaticBitVector, StaticBitVectorView
-
-import ..BitsX.BitArraysX: AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
-export AbstractBitArray, AbstractBitVector, BitArrayAlt, BitArrayX, Chunks
-
-import ..BitsX.BitIntegersX
-export BitIntegersX
+Reexport.@reexport using ..BitsX.BitsBase
+Reexport.@reexport using ..BitsX.Bits
+Reexport.@reexport using ..BitsX.BitArrays
+Reexport.@reexport using ..BitsX.BitArraysX
+Reexport.@reexport using ..BitsX.BitIntegersX
+Reexport.@reexport using ..BitsX.BitArrayViews
+Reexport.@reexport using ..BitsX.BStrings
+Reexport.@reexport using ..BitsX.BStringViews
+Reexport.@reexport using ..BitsX.StaticBitVectors
+Reexport.@reexport using ..BitsX.ParseBin
 
 end # module API

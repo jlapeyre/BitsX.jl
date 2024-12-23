@@ -20,11 +20,11 @@ using Test
 
 import Documenter
 
+include("test_aqua.jl")
+include("test_bitsx.jl")
+
 Documenter.DocMeta.setdocmeta!(BitsX, :DocTestSetup, :(using BitsX); recursive=true)
 Documenter.doctest(BitsX)
-
-include("test_bitsx.jl")
-include("test_aqua.jl")
 
 # @static if Base.VERSION >= v"1.7"
 #     include("test_jet.jl")
