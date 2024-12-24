@@ -18,7 +18,7 @@ Documenter.DocMeta.setdocmeta!(BitsX, :DocTestSetup, :(using BitsX); recursive=t
 makedocs(
     sitename = "BitsX",
     format = Documenter.HTML(),
-    doctest = false,
+    doctest = true,
     modules = Module[BitsX],
     warnonly = true,
 
